@@ -91,7 +91,7 @@ create table bookings (
   home_lng        numeric,
   deposit_amount  integer not null default 25000,
   total_amount    integer,
-  qr_token        text not null default encode(gen_random_bytes(4), 'hex'),
+  qr_token        text not null default substr(md5(random()::text || clock_timestamp()::text), 1, 8),
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now()
 );
