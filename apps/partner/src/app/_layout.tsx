@@ -15,6 +15,7 @@ export default function RootLayout() {
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="booking/[id]" options={{ title: 'Detail Booking' }} />
+        <Stack.Screen name="scan" options={{ title: 'Scan QR Check-in', presentation: 'modal' }} />
       </Stack>
     </QueryClientProvider>
   );

@@ -13,7 +13,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, formatRp, payAstraPay } from '@umotor/shared';
 import { Card, QtyStepper } from '@/components/ui';
-import { selectTotal, useCart, type DeliveryMode } from '@/lib/cart';
+import { selectInstallFee, selectTotal, useCart, type DeliveryMode } from '@/lib/cart';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 
@@ -27,20 +27,23 @@ export default function CartScreen() {
   const qc = useQueryClient();
   const { items, delivery, setQty, remove, setDelivery, clear } = useCart();
   const total = useCart(selectTotal);
+  const installFee = useCart(selectInstallFee);
   const [busy, setBusy] = useState(false);
 
   const cartItems = Object.values(items);
   const empty = cartItems.length === 0;
+  const isInstall = delivery === 'install';
+  const grandTotal = total + (isInstall ? installFee : 0);
 
   const checkout = async () => {
     if (!userId || empty) return;
     setBusy(true);
     try {
       // Fake AstraPay payment (shared mock) — never fails in demo build.
-      await payAstraPay(total, 'Pembelian sparepart uMotor');
+      await payAstraPay(grandTotal, 'Pembelian sparepart uMotor');
 
       // Record the payment so it shows up as GMV in the Console.
-      await supabase.from('payments').insert({ user_id: userId, type: 'sparepart', amount: total });
+      await supabase.from('payments').insert({ user_id: userId, type: 'sparepart', amount: grandTotal });
 
       // Decrement the demo wallet so the Profile balance reacts.
       const { data: u } = await supabase
@@ -51,7 +54,7 @@ export default function CartScreen() {
       if (u) {
         await supabase
           .from('users')
-          .update({ astrapay_balance: Math.max(0, u.astrapay_balance - total) })
+          .update({ astrapay_balance: Math.max(0, u.astrapay_balance - grandTotal) })
           .eq('id', userId);
       }
 
@@ -59,9 +62,9 @@ export default function CartScreen() {
       clear();
       Alert.alert(
         'Pembayaran berhasil',
-        delivery === 'ship'
-          ? 'Sparepart akan dikirim ke alamatmu. Bukti pembayaran tersimpan di AstraPay.'
-          : 'Sparepart disiapkan untuk dipasang di bengkel saat servis berikutnya.',
+        isInstall
+          ? 'Sparepart disiapkan untuk dipasang di bengkel penjual saat servis berikutnya.'
+          : 'Sparepart akan dikirim ke alamatmu. Bukti pembayaran tersimpan di AstraPay.',
         [{ text: 'Selesai', onPress: () => router.back() }],
       );
     } catch {
@@ -98,7 +101,15 @@ export default function CartScreen() {
                   <View style={styles.itemInfo}>
                     <Text style={styles.itemName}>{part.name}</Text>
                     <Text style={styles.itemMeta}>{part.brand ?? 'Generic'}</Text>
+                    {part.seller_name && (
+                      <Text style={styles.itemSeller}>
+                        Dijual oleh {part.seller_name}
+                      </Text>
+                    )}
                     <Text style={styles.itemPrice}>{formatRp(part.price)}</Text>
+                    {isInstall && (
+                      <Text style={styles.itemInstall}>+ pasang {formatRp(part.install_fee)}</Text>
+                    )}
                   </View>
                   <Pressable onPress={() => remove(part.id)} hitSlop={8}>
                     <Ionicons name="trash-outline" size={20} color={colors.danger} />
@@ -137,9 +148,19 @@ export default function CartScreen() {
           </ScrollView>
 
           <View style={styles.footer}>
+            <View style={styles.breakdownRow}>
+              <Text style={styles.breakdownLabel}>Subtotal</Text>
+              <Text style={styles.breakdownValue}>{formatRp(total)}</Text>
+            </View>
+            {isInstall && (
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownLabel}>Biaya pasang di bengkel</Text>
+                <Text style={styles.breakdownValue}>{formatRp(installFee)}</Text>
+              </View>
+            )}
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Total</Text>
-              <Text style={styles.totalValue}>{formatRp(total)}</Text>
+              <Text style={styles.totalValue}>{formatRp(grandTotal)}</Text>
             </View>
             <Pressable
               style={[styles.payBtn, busy && styles.payBtnBusy]}
@@ -179,7 +200,9 @@ const styles = StyleSheet.create({
   itemInfo: { flex: 1, gap: 2 },
   itemName: { fontSize: 15, fontWeight: '700', color: '#0b1727' },
   itemMeta: { fontSize: 12, color: '#667085' },
+  itemSeller: { fontSize: 12, color: '#667085', marginTop: 2 },
   itemPrice: { marginTop: 2, color: '#667085', fontSize: 13 },
+  itemInstall: { marginTop: 1, color: colors.accent, fontSize: 12, fontWeight: '600' },
   itemBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   itemSubtotal: { fontWeight: '800', color: colors.primary, fontSize: 15 },
   sectionTitle: { fontSize: 15, fontWeight: '800', color: '#0b1727', marginTop: 4 },
@@ -206,6 +229,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  breakdownRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  breakdownLabel: { color: '#667085', fontSize: 14 },
+  breakdownValue: { color: '#0b1727', fontSize: 14, fontWeight: '600' },
   totalLabel: { color: '#667085', fontWeight: '600' },
   totalValue: { fontSize: 22, fontWeight: '800', color: '#0b1727' },
   payBtn: {

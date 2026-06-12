@@ -14,7 +14,7 @@ import {
   colors,
   formatRp,
   type ComponentType,
-  type Sparepart,
+  type SparepartListing,
 } from '@umotor/shared';
 import { Card } from '@/components/ui';
 import { useCart } from '@/lib/cart';
@@ -40,7 +40,7 @@ const NEEDS: Record<ComponentType, string[]> = {
 };
 
 interface MarketData {
-  parts: Sparepart[];
+  parts: SparepartListing[];
   models: string[];
   neededCategories: string[];
 }
@@ -55,7 +55,7 @@ export default function Marketplace() {
     enabled: !!userId,
     queryFn: async (): Promise<MarketData> => {
       const [partsRes, bikesRes] = await Promise.all([
-        supabase.from('spareparts').select('*').order('category'),
+        supabase.from('spareparts').select('*, workshops(name)').order('category'),
         supabase.from('motorcycles').select('id, model').eq('user_id', userId!),
       ]);
       const models = (bikesRes.data ?? []).map((b) => b.model as string);
@@ -69,20 +69,21 @@ export default function Marketplace() {
       for (const h of (health ?? []) as { type: ComponentType; pct_used: number }[]) {
         if (h.pct_used >= 80) NEEDS[h.type].forEach((c) => needed.add(c));
       }
-      return {
-        parts: (partsRes.data ?? []) as Sparepart[],
-        models,
-        neededCategories: [...needed],
-      };
+      type Row = SparepartListing & { workshops: { name: string } | null };
+      const parts = ((partsRes.data ?? []) as Row[]).map((r) => ({
+        ...r,
+        seller_name: r.workshops?.name ?? null,
+      }));
+      return { parts, models, neededCategories: [...needed] };
     },
   });
 
   const data = market.data;
 
-  const fitsModel = (p: Sparepart, m: string) =>
+  const fitsModel = (p: SparepartListing, m: string) =>
     m === 'all' ? true : p.compatible_models.includes(m);
 
-  const compatibleWithOwned = (p: Sparepart) =>
+  const compatibleWithOwned = (p: SparepartListing) =>
     !data ? false : p.compatible_models.some((m) => data.models.includes(m));
 
   const recommended = useMemo(() => {
@@ -151,6 +152,11 @@ export default function Marketplace() {
                     <Text style={styles.recName} numberOfLines={2}>
                       {p.name}
                     </Text>
+                    {p.seller_name && (
+                      <Text style={styles.recSeller} numberOfLines={1}>
+                        {p.seller_name}
+                      </Text>
+                    )}
                     <Text style={styles.recPrice}>{formatRp(p.price)}</Text>
                     <Pressable style={styles.recAdd} onPress={() => add(p)}>
                       <Text style={styles.recAddText}>+ Keranjang</Text>
@@ -176,6 +182,12 @@ export default function Marketplace() {
             <Text style={styles.meta}>
               {item.brand ?? 'Generic'} · {CATEGORY_LABELS[item.category] ?? item.category}
             </Text>
+            {item.seller_name && (
+              <View style={styles.sellerTag}>
+                <Ionicons name="storefront-outline" size={12} color="#667085" />
+                <Text style={styles.sellerText}>{item.seller_name}</Text>
+              </View>
+            )}
             {compatibleWithOwned(item) && (
               <View style={styles.fitTag}>
                 <Ionicons name="checkmark-circle" size={12} color={colors.accent} />
@@ -183,6 +195,7 @@ export default function Marketplace() {
               </View>
             )}
             <Text style={styles.price}>{formatRp(item.price)}</Text>
+            <Text style={styles.installNote}>+ {formatRp(item.install_fee)} jika pasang di bengkel</Text>
           </View>
           <Pressable style={styles.addBtn} onPress={() => add(item)} hitSlop={6}>
             <Ionicons name="add" size={20} color="#fff" />
@@ -242,6 +255,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   recName: { fontSize: 13, fontWeight: '700', color: '#0b1727', minHeight: 34 },
+  recSeller: { fontSize: 11, color: '#667085' },
   recPrice: { fontWeight: '800', color: colors.primary },
   recAdd: {
     marginTop: 2,
@@ -264,9 +278,12 @@ const styles = StyleSheet.create({
   info: { flex: 1, gap: 2 },
   name: { fontSize: 15, fontWeight: '700', color: '#0b1727' },
   meta: { fontSize: 12, color: '#667085' },
+  sellerTag: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
+  sellerText: { fontSize: 11, color: '#667085', fontWeight: '600' },
   fitTag: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
   fitText: { fontSize: 11, color: colors.accent, fontWeight: '600' },
   price: { marginTop: 4, fontWeight: '800', color: colors.primary, fontSize: 15 },
+  installNote: { fontSize: 11, color: '#98a2b3', marginTop: 1 },
   addBtn: {
     width: 40,
     height: 40,

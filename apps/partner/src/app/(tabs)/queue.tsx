@@ -13,10 +13,6 @@ export default function Queue() {
     queryKey: ['queue', workshopId],
     enabled: !!workshopId,
     queryFn: async (): Promise<InboxRow[]> => {
-      const start = new Date();
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(start);
-      end.setDate(end.getDate() + 1);
       const { data, error } = await supabase
         .from('bookings')
         .select(
@@ -24,11 +20,20 @@ export default function Queue() {
         )
         .eq('workshop_id', workshopId!)
         .in('status', ['confirmed', 'checked_in', 'in_progress'])
-        .gte('created_at', start.toISOString())
-        .lt('created_at', end.toISOString())
-        .order('created_at');
+        .order('created_at')
+        .limit(100);
       if (error) throw error;
-      return (data ?? []) as InboxRow[];
+      // "Today" means the SLOT date, not when the booking was created.
+      // Home-service bookings (no slot) count as today's work.
+      const today = new Date().toDateString();
+      const rows = ((data ?? []) as InboxRow[]).filter(
+        (b) => b.is_home_service || (b.slots && new Date(b.slots.slot_at).toDateString() === today),
+      );
+      return rows.sort((a, b) => {
+        const ta = a.slots ? new Date(a.slots.slot_at).getTime() : 0;
+        const tb = b.slots ? new Date(b.slots.slot_at).getTime() : 0;
+        return ta - tb;
+      });
     },
   });
 

@@ -1,8 +1,8 @@
 import { create } from 'zustand';
-import type { Sparepart } from '@umotor/shared';
+import type { SparepartListing } from '@umotor/shared';
 
 export interface CartItem {
-  part: Sparepart;
+  part: SparepartListing;
   qty: number;
 }
 
@@ -11,7 +11,7 @@ export type DeliveryMode = 'ship' | 'install';
 interface CartState {
   items: Record<string, CartItem>;
   delivery: DeliveryMode;
-  add: (part: Sparepart) => void;
+  add: (part: SparepartListing) => void;
   setQty: (id: string, qty: number) => void;
   remove: (id: string) => void;
   setDelivery: (mode: DeliveryMode) => void;
@@ -59,3 +59,7 @@ export const selectCount = (s: CartState) =>
 
 export const selectTotal = (s: CartState) =>
   Object.values(s.items).reduce((sum, it) => sum + it.part.price * it.qty, 0);
+
+/** Total install fee if "Pasang di bengkel" — charged once per part line. */
+export const selectInstallFee = (s: CartState) =>
+  Object.values(s.items).reduce((sum, it) => sum + it.part.install_fee, 0);

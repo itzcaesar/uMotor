@@ -57,18 +57,25 @@ from (select id from workshops order by created_at limit 5) w
 cross join generate_series(0, 6) d
 cross join generate_series(9, 16) h;
 
--- Spareparts (Yamalube + filter = the scripted Rp 83.000 recommendation)
-insert into spareparts (name, brand, category, price, compatible_models) values
-  ('Yamalube 10W-30 0.8L',      'Yamaha',     'oil',       65000,  '{"Vario 160","NMAX 155","Aerox 155"}'),
-  ('Filter oli',                 'Astra Otoparts', 'filter', 18000, '{"Vario 160","NMAX 155","PCX 160"}'),
-  ('AHM Oil MPX-2 0.8L',        'Honda',      'oil',       58000,  '{"Vario 160","BeAT","PCX 160"}'),
-  ('Aki GTZ6V',                  'GS Astra',   'battery',   235000, '{"Vario 160","BeAT"}'),
-  ('Aki GTZ7V',                  'GS Astra',   'battery',   265000, '{"NMAX 155","Aerox 155","PCX 160"}'),
-  ('Kampas rem depan',           'Astra Otoparts', 'brake', 45000,  '{"Vario 160","NMAX 155"}'),
-  ('Ban tubeless 100/80-14',     'FDR',        'tire',      210000, '{"Vario 160","BeAT"}'),
-  ('Ban tubeless 110/70-13',     'FDR',        'tire',      245000, '{"NMAX 155","Aerox 155"}'),
-  ('Filter udara',               'Astra Otoparts', 'filter', 52000, '{"Vario 160","NMAX 155"}'),
-  ('Windshield sport',           'Generic',    'accessory', 150000, '{"NMAX 155","Aerox 155","PCX 160"}');
+-- Spareparts: each has a seller workshop + install fee (added on "Pasang di bengkel").
+-- install_fee is per-part and will later be editable in the Workshop app.
+-- Yamalube + Filter oli are both sold by AHASS Bandung Timur (the scripted recommendation).
+insert into spareparts (name, brand, category, price, install_fee, workshop_id, compatible_models)
+select v.name, v.brand, v.category, v.price, v.install_fee,
+       (select id from workshops where name = v.seller),
+       v.models
+from (values
+  ('Yamalube 10W-30 0.8L',   'Yamaha',         'oil',       65000,  10000, 'AHASS Bandung Timur', array['Vario 160','NMAX 155','Aerox 155']),
+  ('Filter oli',             'Astra Otoparts', 'filter',    18000,  10000, 'AHASS Bandung Timur', array['Vario 160','NMAX 155','PCX 160']),
+  ('AHM Oil MPX-2 0.8L',     'Honda',          'oil',       58000,  10000, 'AHASS Kiaracondong',  array['Vario 160','BeAT','PCX 160']),
+  ('Aki GTZ6V',              'GS Astra',       'battery',   235000, 25000, 'AHASS Bandung Timur', array['Vario 160','BeAT']),
+  ('Aki GTZ7V',              'GS Astra',       'battery',   265000, 25000, 'AHASS Antapani',      array['NMAX 155','Aerox 155','PCX 160']),
+  ('Kampas rem depan',       'Astra Otoparts', 'brake',     45000,  30000, 'Bengkel Jaya Motor',  array['Vario 160','NMAX 155']),
+  ('Ban tubeless 100/80-14', 'FDR',            'tire',      210000, 35000, 'Bengkel Jaya Motor',  array['Vario 160','BeAT']),
+  ('Ban tubeless 110/70-13', 'FDR',            'tire',      245000, 35000, 'Sumber Rejeki Motor', array['NMAX 155','Aerox 155']),
+  ('Filter udara',           'Astra Otoparts', 'filter',    52000,  10000, 'AHASS Bandung Timur', array['Vario 160','NMAX 155']),
+  ('Windshield sport',       'Generic',        'accessory', 150000, 20000, 'AHASS Antapani',      array['NMAX 155','Aerox 155','PCX 160'])
+) as v(name, brand, category, price, install_fee, seller, models);
 
 -- MotoScore: Budi at 720 with history
 insert into motoscore (user_id, score) values

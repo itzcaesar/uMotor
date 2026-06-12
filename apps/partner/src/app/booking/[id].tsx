@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { formatRp, type BookingStatus } from '@umotor/shared';
 import { Card, StatusBadge, colors } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
@@ -69,7 +69,12 @@ export default function BookingDetail() {
     b.status === 'pending'
       ? { label: 'Terima booking', color: colors.accent, onPress: () => transition.mutate('confirmed') }
       : b.status === 'confirmed'
-        ? { label: 'Check-in (simulasi scan)', color: colors.primary, onPress: () => transition.mutate('checked_in') }
+        ? {
+            label: 'Check-in — Scan QR',
+            color: colors.primary,
+            onPress: () =>
+              router.push({ pathname: '/scan', params: { token: b.qr_token } }),
+          }
         : b.status === 'checked_in' || b.status === 'in_progress'
           ? {
               label: 'Selesaikan servis',

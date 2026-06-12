@@ -27,6 +27,7 @@ export default function TabsLayout() {
           qc.invalidateQueries({ queryKey: ['inbox'] });
           qc.invalidateQueries({ queryKey: ['queue'] });
           qc.invalidateQueries({ queryKey: ['booking'] });
+          qc.invalidateQueries({ queryKey: ['earnings'] });
         },
       )
       .subscribe();
@@ -55,6 +56,13 @@ export default function TabsLayout() {
         options={{
           title: 'Antrian',
           tabBarIcon: ({ color, size }) => <Ionicons name="list" color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="earnings"
+        options={{
+          title: 'Pendapatan',
+          tabBarIcon: ({ color, size }) => <Ionicons name="cash" color={color} size={size} />,
         }}
       />
     </Tabs>
