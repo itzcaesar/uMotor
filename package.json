@@ -1,0 +1,9 @@
+{
+  "name": "umotor",
+  "private": true,
+  "scripts": {
+    "console:dev": "pnpm --filter @umotor/console dev",
+    "console:build": "pnpm --filter @umotor/console build",
+    "db:reset": "supabase db reset --linked"
+  }
+}

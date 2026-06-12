@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+/* Projector rule (PRD §8): light theme, high contrast — no dark mode. */
+:root {
+  --background: #f7f8fa;
+  --foreground: #101828;
+  --primary: #0e4da4;
+  --accent: #00a86b;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-accent: var(--accent);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}

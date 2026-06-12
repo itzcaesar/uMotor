@@ -1,0 +1,25 @@
+# deps
+node_modules/
+
+# builds
+.next/
+out/
+dist/
+.expo/
+
+# env
+.env
+.env.local
+.env*.local
+
+# misc
+.DS_Store
+*.tsbuildinfo
+.vercel/
+
+# supabase local
+supabase/.temp/
+supabase/.branches/
+
+# ide-related
+.docs
