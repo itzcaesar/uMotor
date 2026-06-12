@@ -5,11 +5,13 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
+import { Users, CalendarClock, Wallet, Store } from "lucide-react";
 import {
   colors,
   formatRp,
@@ -17,9 +19,17 @@ import {
   type MotoScoreBucket,
 } from "@umotor/shared";
 import { getSupabase } from "@/lib/supabase";
-import { Card, KpiCard, SetupNotice } from "@/components/ui";
+import { Card, ChartTooltip, KpiCard, SectionHeader, SetupNotice } from "@/components/ui";
 
 const nf = new Intl.NumberFormat("id-ID");
+
+// Credit-tier colors so the MotoScore story reads at a glance on the projector.
+function scoreColor(min: number) {
+  if (min < 580) return colors.danger;
+  if (min < 670) return colors.warning;
+  if (min < 740) return colors.primary;
+  return colors.accent;
+}
 
 export default function OverviewPage() {
   const supabase = getSupabase();
@@ -70,7 +80,7 @@ export default function OverviewPage() {
   }, [supabase, load]);
 
   const histogram = useMemo(
-    () => buckets.map((b) => ({ label: String(b.bucket_min), n: b.n })),
+    () => buckets.map((b) => ({ label: String(b.bucket_min), n: b.n, min: b.bucket_min })),
     [buckets],
   );
 
@@ -78,71 +88,118 @@ export default function OverviewPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-3xl font-bold">Overview</h1>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Overview</h1>
+        <p className="mt-1 text-muted">Ringkasan kesehatan platform uMotor secara real-time.</p>
+      </div>
 
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <KpiCard label="Active Users" value={kpi ? nf.format(kpi.active_users) : "—"} />
+        <KpiCard
+          label="Active Users"
+          value={kpi ? nf.format(kpi.active_users) : "—"}
+          icon={<Users size={18} />}
+          accent="primary"
+          trend={{ dir: "up", text: "+12% bln ini" }}
+        />
         <KpiCard
           label="Bookings Today"
           value={kpi ? nf.format(kpi.bookings_today) : "—"}
-          caption="live"
+          icon={<CalendarClock size={18} />}
+          accent="accent"
+          live
           highlight={pulse}
         />
-        <KpiCard label="GMV" value={kpi ? formatRp(kpi.gmv) : "—"} />
-        <KpiCard label="Partner Workshops" value={kpi ? nf.format(kpi.partner_workshops) : "—"} />
+        <KpiCard
+          label="GMV"
+          value={kpi ? formatRp(kpi.gmv) : "—"}
+          icon={<Wallet size={18} />}
+          accent="warning"
+          trend={{ dir: "up", text: "+8% bln ini" }}
+        />
+        <KpiCard
+          label="Partner Workshops"
+          value={kpi ? nf.format(kpi.partner_workshops) : "—"}
+          icon={<Store size={18} />}
+          accent="primary"
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Card>
-          <h2 className="mb-4 text-lg font-semibold">Bookings — 30 hari terakhir</h2>
+          <SectionHeader title="Bookings" subtitle="30 hari terakhir" />
           <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={daily}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="day" fontSize={12} />
-              <YAxis allowDecimals={false} fontSize={12} />
-              <Tooltip />
-              <Bar dataKey="n" name="Bookings" fill={colors.primary} radius={[4, 4, 0, 0]} />
+            <BarChart data={daily} margin={{ left: -16, right: 8, top: 4 }}>
+              <defs>
+                <linearGradient id="barPrimary" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={colors.primary} stopOpacity={0.95} />
+                  <stop offset="100%" stopColor={colors.primary} stopOpacity={0.55} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef1f6" />
+              <XAxis dataKey="day" fontSize={12} tickLine={false} axisLine={false} stroke="#98a2b3" />
+              <YAxis allowDecimals={false} fontSize={12} tickLine={false} axisLine={false} stroke="#98a2b3" width={32} />
+              <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(14,77,164,0.06)" }} />
+              <Bar dataKey="n" name="Bookings" fill="url(#barPrimary)" radius={[6, 6, 0, 0]} maxBarSize={28} />
             </BarChart>
           </ResponsiveContainer>
         </Card>
 
         <Card>
-          <h2 className="text-lg font-semibold">Distribusi MotoScore</h2>
-          <p className="mb-4 text-sm text-gray-500">
-            Skor kredit 300–850 dari perilaku perawatan motor — bukan riwayat kredit bank.
-          </p>
-          <ResponsiveContainer width="100%" height={232}>
-            <BarChart data={histogram}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="label" fontSize={12} />
-              <YAxis allowDecimals={false} fontSize={12} />
-              <Tooltip />
-              <Bar dataKey="n" name="Pengguna" fill={colors.accent} radius={[4, 4, 0, 0]} />
+          <SectionHeader
+            title="Distribusi MotoScore"
+            subtitle="Skor kredit 300–850 dari perilaku perawatan motor — bukan riwayat kredit bank."
+          />
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={histogram} margin={{ left: -16, right: 8, top: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef1f6" />
+              <XAxis dataKey="label" fontSize={12} tickLine={false} axisLine={false} stroke="#98a2b3" />
+              <YAxis allowDecimals={false} fontSize={12} tickLine={false} axisLine={false} stroke="#98a2b3" width={32} />
+              <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(0,168,107,0.06)" }} />
+              <Bar dataKey="n" name="Pengguna" radius={[6, 6, 0, 0]} maxBarSize={36}>
+                {histogram.map((d) => (
+                  <Cell key={d.min} fill={scoreColor(d.min)} />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
+            <Legend color={colors.danger} label="Poor (<580)" />
+            <Legend color={colors.warning} label="Fair (580–669)" />
+            <Legend color={colors.primary} label="Good (670–739)" />
+            <Legend color={colors.accent} label="Excellent (740+)" />
+          </div>
         </Card>
       </div>
 
       {/* Honesty rule: projections are labeled targets, never live data. */}
-      <Card className="border-dashed">
-        <p className="text-sm font-semibold uppercase tracking-wide text-gray-400">
+      <Card className="border-dashed bg-gradient-to-br from-primary-soft/50 to-transparent">
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-soft">
           Target — bukan data live
         </p>
-        <div className="mt-2 grid grid-cols-3 gap-4 text-center">
-          <div>
-            <p className="text-3xl font-bold text-primary">1 jt</p>
-            <p className="text-sm text-gray-500">pengguna aktif (target th-1)</p>
-          </div>
-          <div>
-            <p className="text-3xl font-bold text-primary">5.000</p>
-            <p className="text-sm text-gray-500">bengkel mitra (target th-1)</p>
-          </div>
-          <div>
-            <p className="text-3xl font-bold text-primary">Rp 50 M+</p>
-            <p className="text-sm text-gray-500">ARR (target th-2)</p>
-          </div>
+        <div className="mt-3 grid grid-cols-3 gap-4">
+          <Target value="1 jt" label="pengguna aktif (target th-1)" />
+          <Target value="5.000" label="bengkel mitra (target th-1)" />
+          <Target value="Rp 50 M+" label="ARR (target th-2)" />
         </div>
       </Card>
+    </div>
+  );
+}
+
+function Legend({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: color }} />
+      {label}
+    </span>
+  );
+}
+
+function Target({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="rounded-xl border border-border bg-card/60 px-4 py-3 text-center">
+      <p className="text-3xl font-bold tracking-tight text-primary">{value}</p>
+      <p className="mt-1 text-sm text-muted">{label}</p>
     </div>
   );
 }

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { formatRp, type BookingRecent, type BookingStatus } from "@umotor/shared";
 import { getSupabase } from "@/lib/supabase";
-import { Card, SetupNotice, StatusBadge } from "@/components/ui";
+import { Card, Pill, SetupNotice, StatusBadge } from "@/components/ui";
 
 const FILTERS: (BookingStatus | "all")[] = [
   "all",
@@ -55,72 +55,80 @@ export default function BookingsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-3xl font-bold">Bookings</h1>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Bookings</h1>
+          <p className="mt-1 text-muted">Daftar booking terbaru — diperbarui real-time.</p>
+        </div>
+        <span className="rounded-full border border-border bg-card px-3 py-1 text-sm font-medium text-muted">
+          {rows.length} booking
+        </span>
+      </div>
 
       <div className="flex flex-wrap gap-2">
         {FILTERS.map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`rounded-full px-4 py-1.5 text-sm font-medium ${
-              filter === f ? "bg-primary text-white" : "bg-white text-gray-600 hover:bg-gray-100"
-            }`}
-          >
-            {f === "all" ? "Semua" : f}
-          </button>
+          <Pill key={f} active={filter === f} onClick={() => setFilter(f)}>
+            {f === "all" ? "Semua" : f.replace("_", " ")}
+          </Pill>
         ))}
       </div>
 
-      <Card className="overflow-x-auto p-0">
-        <table className="w-full text-left text-base">
-          <thead className="border-b border-gray-200 text-sm uppercase tracking-wide text-gray-400">
-            <tr>
-              <th className="px-5 py-3">Waktu</th>
-              <th className="px-5 py-3">Customer</th>
-              <th className="px-5 py-3">Plat</th>
-              <th className="px-5 py-3">Bengkel</th>
-              <th className="px-5 py-3">Servis</th>
-              <th className="px-5 py-3 text-right">Nilai</th>
-              <th className="px-5 py-3">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((b) => (
-              <tr
-                key={b.id}
-                className={`border-b border-gray-100 transition-colors ${
-                  b.id === freshId ? "bg-amber-50" : ""
-                }`}
-              >
-                <td className="px-5 py-3 whitespace-nowrap text-gray-500">
-                  {new Date(b.created_at).toLocaleString("id-ID", {
-                    day: "2-digit",
-                    month: "short",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </td>
-                <td className="px-5 py-3 font-medium">{b.customer}</td>
-                <td className="px-5 py-3 font-mono text-sm">{b.plate}</td>
-                <td className="px-5 py-3">{b.workshop}</td>
-                <td className="px-5 py-3">{b.service}</td>
-                <td className="px-5 py-3 text-right whitespace-nowrap">
-                  {b.total_amount != null ? formatRp(b.total_amount) : "—"}
-                </td>
-                <td className="px-5 py-3">
-                  <StatusBadge status={b.status} />
-                </td>
+      <Card className="overflow-hidden p-0">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-base">
+            <thead className="sticky top-0 bg-background/80 text-xs uppercase tracking-wider text-muted-soft backdrop-blur">
+              <tr className="border-b border-border">
+                <th className="px-5 py-3 font-semibold">Waktu</th>
+                <th className="px-5 py-3 font-semibold">Customer</th>
+                <th className="px-5 py-3 font-semibold">Plat</th>
+                <th className="px-5 py-3 font-semibold">Bengkel</th>
+                <th className="px-5 py-3 font-semibold">Servis</th>
+                <th className="px-5 py-3 text-right font-semibold">Nilai</th>
+                <th className="px-5 py-3 font-semibold">Status</th>
               </tr>
-            ))}
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-5 py-10 text-center text-gray-400">
-                  Belum ada booking untuk filter ini.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((b) => (
+                <tr
+                  key={b.id}
+                  className={`border-b border-border/60 transition-colors last:border-0 ${
+                    b.id === freshId ? "bg-accent-soft" : "hover:bg-primary-soft/40"
+                  }`}
+                >
+                  <td className="whitespace-nowrap px-5 py-3 text-sm text-muted">
+                    {new Date(b.created_at).toLocaleString("id-ID", {
+                      day: "2-digit",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </td>
+                  <td className="px-5 py-3 font-medium">{b.customer}</td>
+                  <td className="px-5 py-3">
+                    <span className="rounded-md bg-background px-2 py-0.5 font-mono text-sm text-foreground">
+                      {b.plate}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3">{b.workshop}</td>
+                  <td className="px-5 py-3 text-muted">{b.service}</td>
+                  <td className="whitespace-nowrap px-5 py-3 text-right font-medium tabular-nums">
+                    {b.total_amount != null ? formatRp(b.total_amount) : "—"}
+                  </td>
+                  <td className="px-5 py-3">
+                    <StatusBadge status={b.status} />
+                  </td>
+                </tr>
+              ))}
+              {rows.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-5 py-12 text-center text-muted-soft">
+                    Belum ada booking untuk filter ini.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </Card>
     </div>
   );

@@ -4,6 +4,8 @@
   "scripts": {
     "console:dev": "pnpm --filter @umotor/console dev",
     "console:build": "pnpm --filter @umotor/console build",
+    "consumer:start": "pnpm --filter @umotor/consumer start",
+    "partner:start": "pnpm --filter @umotor/partner start",
     "db:reset": "supabase db reset --linked"
   }
 }

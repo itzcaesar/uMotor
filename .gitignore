@@ -22,4 +22,5 @@ supabase/.temp/
 supabase/.branches/
 
 # ide-related
+.vscode
 .docs
