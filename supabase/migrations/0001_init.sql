@@ -106,6 +106,8 @@ create table spareparts (
   brand             text,
   category          text not null,
   price             integer not null,
+  install_fee       integer not null default 0,   -- fee if "Pasang di bengkel"; configurable via Workshop app
+  workshop_id       uuid references workshops(id), -- seller workshop
   image_url         text,
   compatible_models text[] not null default '{}'
 );

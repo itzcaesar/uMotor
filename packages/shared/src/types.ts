@@ -110,8 +110,15 @@ export interface Sparepart {
   brand: string | null;
   category: string;
   price: number;
+  install_fee: number; // added when installed at the selling workshop; set via Workshop app
+  workshop_id: string | null; // seller
   image_url: string | null;
   compatible_models: string[];
+}
+
+/** Sparepart row joined with its seller workshop name (marketplace listing). */
+export interface SparepartListing extends Sparepart {
+  seller_name: string | null;
 }
 
 export interface MotoScore {

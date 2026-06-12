@@ -1,5 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
-import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import {
   COMPONENT_LABELS,
   colors,
@@ -17,6 +19,7 @@ interface BikeWithHealth extends Motorcycle {
 
 export default function Garage() {
   const userId = useSession((s) => s.userId);
+  const qc = useQueryClient();
 
   const bikes = useQuery({
     queryKey: ['garage', userId],
@@ -70,7 +73,23 @@ export default function Garage() {
         banner.data ? (
           <Pressable
             style={styles.banner}
-            onPress={() => Alert.alert('Booking servis', 'Alur booking dibangun di milestone M1.')}
+            onPress={() => {
+              // The proactive-notification moment (storyline step 3): deep-link into booking.
+              const all = bikes.data ?? [];
+              const dueBike =
+                all.find((b) => b.health.some((h) => h.type === 'oil' && h.pct_used >= 80)) ??
+                all[0];
+              if (!dueBike) return;
+              supabase
+                .from('notifications')
+                .update({ read: true })
+                .eq('id', banner.data!.id)
+                .then(() => qc.invalidateQueries({ queryKey: ['maintenance-banner', userId] }));
+              router.push({
+                pathname: '/booking/new',
+                params: { bike: dueBike.id, service: 'oil_change' },
+              });
+            }}
           >
             <Text style={styles.bannerTitle}>{banner.data.title}</Text>
             <Text style={styles.bannerBody}>{banner.data.body}</Text>
@@ -78,9 +97,16 @@ export default function Garage() {
           </Pressable>
         ) : null
       }
+      ListFooterComponent={
+        <Pressable style={styles.addBike} onPress={() => router.push('/add-bike')}>
+          <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
+          <Text style={styles.addBikeText}>Tambah motor (cek Samsat)</Text>
+        </Pressable>
+      }
       renderItem={({ item }) => {
         const worst = [...item.health].sort((a, b) => b.pct_used - a.pct_used)[0];
         return (
+          <Pressable onPress={() => router.push({ pathname: '/bike/[id]', params: { id: item.id } })}>
           <Card style={styles.bikeCard}>
             <View style={styles.bikeHeader}>
               <View>
@@ -100,6 +126,7 @@ export default function Garage() {
               <HealthBar key={h.id} label={COMPONENT_LABELS[h.type]} pctUsed={h.pct_used} />
             ))}
           </Card>
+          </Pressable>
         );
       }}
       ListEmptyComponent={
@@ -130,4 +157,17 @@ const styles = StyleSheet.create({
   odo: { fontSize: 13, fontWeight: '600', color: '#667085' },
   worst: { marginTop: 8, color: colors.warning, fontWeight: '700', fontSize: 13 },
   empty: { textAlign: 'center', color: '#98a2b3', marginTop: 48 },
+  addBike: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#cfdcf2',
+    borderStyle: 'dashed',
+    backgroundColor: '#fff',
+  },
+  addBikeText: { color: colors.primary, fontWeight: '700', fontSize: 14 },
 });

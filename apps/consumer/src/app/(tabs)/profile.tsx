@@ -31,8 +31,11 @@ export default function Profile() {
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
       <Card>
-        <Text style={styles.name}>{d?.user?.name ?? '…'}</Text>
-        <Text style={styles.phone}>{d?.user?.phone ?? ''}</Text>
+        {/* Long-press = hidden presenter tools (PRD 01 §8). */}
+        <Pressable onLongPress={() => router.push('/demo-controls')} delayLongPress={600}>
+          <Text style={styles.name}>{d?.user?.name ?? '…'}</Text>
+          <Text style={styles.phone}>{d?.user?.phone ?? ''}</Text>
+        </Pressable>
         <View style={styles.walletRow}>
           <Text style={styles.walletLabel}>Saldo AstraPay</Text>
           <Text style={styles.walletValue}>
@@ -41,11 +44,13 @@ export default function Profile() {
         </View>
       </Card>
 
-      <Card style={styles.scoreCard}>
-        <Text style={styles.scoreLabel}>MotoScore</Text>
-        <Text style={styles.scoreValue}>{d?.score?.score ?? '—'}</Text>
-        <Text style={styles.scoreHint}>300–850 · dari perilaku perawatan motor</Text>
-      </Card>
+      <Pressable onPress={() => router.push('/motoscore')}>
+        <Card style={styles.scoreCard}>
+          <Text style={styles.scoreLabel}>MotoScore</Text>
+          <Text style={styles.scoreValue}>{d?.score?.score ?? '—'}</Text>
+          <Text style={styles.scoreHint}>300–850 · ketuk untuk detail & produk finansial</Text>
+        </Card>
+      </Pressable>
 
       <Card>
         <View style={styles.walletRow}>
