@@ -8,6 +8,10 @@ export const DEPOSIT_AMOUNT = 25000; // Rp, per proposal
 export const MOTOSCORE_SERVICE_DELTA = 5;
 export const POINTS_PER_SERVICE = 500;
 
+// Service code used for marketplace "Pasang di bengkel" install orders.
+// Seeded in supabase/seed.sql; partner Sparepart-orders tab filters on it.
+export const INSTALL_SERVICE_CODE = 'pasang_sparepart';
+
 // Maintenance notification thresholds (pct of interval used)
 export const NOTIFY_THRESHOLDS = [80, 95, 100] as const;
 

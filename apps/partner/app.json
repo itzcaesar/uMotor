@@ -3,12 +3,13 @@
     "name": "uMotor Mitra",
     "slug": "umotor-partner",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "umotor-mitra",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
@@ -25,6 +26,12 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "uMotor Mitra butuh akses kamera untuk scan QR check-in pelanggan."
+        }
+      ],
       [
         "expo-splash-screen",
         {

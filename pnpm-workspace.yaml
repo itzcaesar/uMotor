@@ -1,6 +1,13 @@
 packages:
   - apps/*
   - packages/*
+
+# React Native / Metro can't traverse pnpm's default symlinked (isolated) node_modules,
+# which causes nested-duplicate resolution failures (e.g. react-native-svg via
+# react-native-qrcode-svg). A flat, hoisted layout is what Expo/Metro expects.
+# (pnpm 10+ reads this setting here, not from .npmrc.)
+nodeLinker: hoisted
+
 allowBuilds:
   sharp: true
   unrs-resolver: true

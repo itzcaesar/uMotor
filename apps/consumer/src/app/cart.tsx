@@ -8,12 +8,13 @@ import {
   Text,
   View,
 } from 'react-native';
-import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, formatRp, payAstraPay } from '@umotor/shared';
-import { Card, QtyStepper } from '@/components/ui';
-import { selectInstallFee, selectTotal, useCart, type DeliveryMode } from '@/lib/cart';
+import { colors, formatRp, INSTALL_SERVICE_CODE, payAstraPay } from '@umotor/shared';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Card, QtyStepper, tabletContainer, useResponsive } from '@/components/ui';
+import { selectInstallFee, selectTotal, useCart, type CartItem, type DeliveryMode } from '@/lib/cart';
+import { safeBack } from '@/lib/nav';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 
@@ -34,6 +35,61 @@ export default function CartScreen() {
   const empty = cartItems.length === 0;
   const isInstall = delivery === 'install';
   const grandTotal = total + (isInstall ? installFee : 0);
+  const r = useResponsive();
+  const insets = useSafeAreaInsets();
+
+  // "Pasang di bengkel" → create an installation order per seller workshop.
+  // Each becomes a confirmed booking that shows up in the partner Sparepart-orders tab.
+  const createInstallOrders = async () => {
+    const [{ data: svc }, { data: bikes }] = await Promise.all([
+      supabase.from('services').select('id').eq('code', INSTALL_SERVICE_CODE).single(),
+      supabase.from('motorcycles').select('id').eq('user_id', userId!).order('created_at').limit(1),
+    ]);
+    const serviceId = (svc as { id: string } | null)?.id;
+    const bikeId = (bikes as { id: string }[] | null)?.[0]?.id;
+    if (!serviceId || !bikeId) return; // payment already recorded; skip booking creation
+
+    const groups = new Map<string, CartItem[]>();
+    for (const it of cartItems) {
+      const wid = it.part.workshop_id;
+      if (!wid) continue; // no seller workshop → can't be installed
+      const g = groups.get(wid);
+      if (g) g.push(it);
+      else groups.set(wid, [it]);
+    }
+
+    for (const [workshopId, group] of groups) {
+      const sellerTotal = group.reduce(
+        (s, it) => s + it.part.price * it.qty + it.part.install_fee,
+        0,
+      );
+      const { data: booking, error: bookingErr } = await supabase
+        .from('bookings')
+        .insert({
+          user_id: userId,
+          motorcycle_id: bikeId,
+          workshop_id: workshopId,
+          slot_id: null,
+          service_id: serviceId,
+          is_home_service: false,
+          status: 'confirmed',
+          deposit_amount: sellerTotal, // paid in full now
+          total_amount: sellerTotal,
+        })
+        .select('id')
+        .single();
+      if (bookingErr) throw bookingErr;
+      const { error: partsErr } = await supabase.from('booking_parts').insert(
+        group.map((it) => ({
+          booking_id: (booking as { id: string }).id,
+          sparepart_id: it.part.id,
+          qty: it.qty,
+          unit_price: it.part.price,
+        })),
+      );
+      if (partsErr) throw partsErr;
+    }
+  };
 
   const checkout = async () => {
     if (!userId || empty) return;
@@ -42,8 +98,16 @@ export default function CartScreen() {
       // Fake AstraPay payment (shared mock) — never fails in demo build.
       await payAstraPay(grandTotal, 'Pembelian sparepart uMotor');
 
+      // Install mode → create the installation order(s) FIRST. If a booking
+      // insert fails we abort here, before recording payment / debiting the
+      // wallet, so the user is never charged for an order that wasn't created.
+      if (isInstall) await createInstallOrders();
+
       // Record the payment so it shows up as GMV in the Console.
-      await supabase.from('payments').insert({ user_id: userId, type: 'sparepart', amount: grandTotal });
+      const { error: payErr } = await supabase
+        .from('payments')
+        .insert({ user_id: userId, type: 'sparepart', amount: grandTotal });
+      if (payErr) throw payErr;
 
       // Decrement the demo wallet so the Profile balance reacts.
       const { data: u } = await supabase
@@ -58,17 +122,17 @@ export default function CartScreen() {
           .eq('id', userId);
       }
 
-      qc.invalidateQueries({ queryKey: ['profile', userId] });
+      qc.invalidateQueries();
       clear();
       Alert.alert(
         'Pembayaran berhasil',
         isInstall
-          ? 'Sparepart disiapkan untuk dipasang di bengkel penjual saat servis berikutnya.'
+          ? 'Pesanan pemasangan dibuat di bengkel penjual. Tunjukkan QR di aplikasi saat datang.'
           : 'Sparepart akan dikirim ke alamatmu. Bukti pembayaran tersimpan di AstraPay.',
-        [{ text: 'Selesai', onPress: () => router.back() }],
+        [{ text: 'Selesai', onPress: () => safeBack('/(tabs)/marketplace') }],
       );
-    } catch {
-      Alert.alert('Gagal', 'Pembayaran gagal diproses. Coba lagi.');
+    } catch (e) {
+      Alert.alert('Gagal', e instanceof Error ? e.message : 'Pembayaran gagal diproses. Coba lagi.');
     } finally {
       setBusy(false);
     }
@@ -77,7 +141,7 @@ export default function CartScreen() {
   return (
     <View style={styles.screen}>
       <View style={styles.topbar}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
+        <Pressable onPress={() => safeBack('/(tabs)/marketplace')} hitSlop={8}>
           <Ionicons name="close" size={26} color="#0b1727" />
         </Pressable>
         <Text style={styles.title}>Keranjang</Text>
@@ -88,13 +152,13 @@ export default function CartScreen() {
         <View style={styles.emptyWrap}>
           <Ionicons name="cart-outline" size={48} color="#cbd5e1" />
           <Text style={styles.empty}>Keranjang masih kosong.</Text>
-          <Pressable style={styles.browseBtn} onPress={() => router.back()}>
+          <Pressable style={styles.browseBtn} onPress={() => safeBack('/(tabs)/marketplace')}>
             <Text style={styles.browseText}>Lihat sparepart</Text>
           </Pressable>
         </View>
       ) : (
         <>
-          <ScrollView contentContainerStyle={styles.content}>
+          <ScrollView contentContainerStyle={[styles.content, tabletContainer(r)]}>
             {cartItems.map(({ part, qty }) => (
               <Card key={part.id} style={styles.item}>
                 <View style={styles.itemTop}>
@@ -147,7 +211,7 @@ export default function CartScreen() {
             </View>
           </ScrollView>
 
-          <View style={styles.footer}>
+          <View style={[styles.footer, { paddingBottom: Math.max(28, insets.bottom + 8) }, tabletContainer(r)]}>
             <View style={styles.breakdownRow}>
               <Text style={styles.breakdownLabel}>Subtotal</Text>
               <Text style={styles.breakdownValue}>{formatRp(total)}</Text>

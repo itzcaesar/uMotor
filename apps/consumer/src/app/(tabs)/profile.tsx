@@ -2,12 +2,13 @@ import { useQuery } from '@tanstack/react-query';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { colors, formatRp, type MotoScore, type User } from '@umotor/shared';
-import { Card } from '@/components/ui';
+import { Card, useResponsive } from '@/components/ui';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 
 export default function Profile() {
   const { userId, logout } = useSession();
+  const r = useResponsive();
 
   const profile = useQuery({
     queryKey: ['profile', userId],
@@ -29,7 +30,7 @@ export default function Profile() {
   const d = profile.data;
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, r.isTablet && styles.contentWide]}>
       <Card>
         {/* Long-press = hidden presenter tools (PRD 01 §8). */}
         <Pressable onLongPress={() => router.push('/demo-controls')} delayLongPress={600}>
@@ -38,7 +39,7 @@ export default function Profile() {
         </Pressable>
         <View style={styles.walletRow}>
           <Text style={styles.walletLabel}>Saldo AstraPay</Text>
-          <Text style={styles.walletValue}>
+          <Text style={styles.walletValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
             {d?.user ? formatRp(d.user.astrapay_balance) : '—'}
           </Text>
         </View>
@@ -55,7 +56,9 @@ export default function Profile() {
       <Card>
         <View style={styles.walletRow}>
           <Text style={styles.walletLabel}>MotoPoints</Text>
-          <Text style={styles.pointsValue}>{d?.points.toLocaleString('id-ID') ?? '—'}</Text>
+          <Text style={styles.pointsValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+            {d?.points.toLocaleString('id-ID') ?? '—'}
+          </Text>
         </View>
       </Card>
 
@@ -75,6 +78,7 @@ export default function Profile() {
 const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: '#f3f6fb' },
   content: { padding: 16, gap: 12 },
+  contentWide: { maxWidth: 520, width: '100%', alignSelf: 'center' },
   name: { fontSize: 20, fontWeight: '800', color: '#0b1727' },
   phone: { color: '#667085', marginTop: 2 },
   walletRow: {

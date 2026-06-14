@@ -20,7 +20,9 @@ import {
   type Motorcycle,
   type Sparepart,
 } from '@umotor/shared';
-import { Card } from '@/components/ui';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Card, tabletContainer, useResponsive } from '@/components/ui';
+import { safeBack } from '@/lib/nav';
 import { selectDraftTotal, useDraft } from '@/lib/draft';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
@@ -38,6 +40,8 @@ export default function Confirm() {
   const draft = useDraft();
   const partsTotal = useDraft(selectDraftTotal);
   const [busy, setBusy] = useState(false);
+  const r = useResponsive();
+  const insets = useSafeAreaInsets();
 
   const info = useQuery({
     queryKey: ['confirm-info', draft.motorcycleId],
@@ -63,11 +67,12 @@ export default function Confirm() {
   });
 
   const { workshop, service, slot } = draft;
-  if (!workshop || !service || !slot) {
+  if (!workshop || !service || (!slot && !draft.isHomeService)) {
     return <Text style={styles.loading}>Draft booking tidak lengkap — mulai dari Garasi.</Text>;
   }
 
-  const total = partsTotal; // service base + selected parts
+  const homeFee = draft.isHomeService ? (workshop.home_service_fee ?? 0) : 0;
+  const total = partsTotal + homeFee; // service base + selected parts + home-service fee
   const bike = info.data?.bike;
 
   const pay = async () => {
@@ -79,12 +84,19 @@ export default function Confirm() {
         p_user_id: userId,
         p_motorcycle_id: draft.motorcycleId,
         p_workshop_id: workshop.id,
-        p_slot_id: slot.id,
+        p_slot_id: slot?.id ?? null,
         p_service_id: service.id,
         p_part_ids: draft.parts.map((p) => p.id),
       });
       if (error) throw error;
       const booking = data as Booking;
+      // book_slot sets is_home_service when slot is null; attach the GPS address.
+      if (draft.isHomeService && draft.homeAddress) {
+        await supabase
+          .from('bookings')
+          .update({ home_address: draft.homeAddress })
+          .eq('id', booking.id);
+      }
       qc.invalidateQueries();
       draft.reset();
       router.dismissAll();
@@ -93,7 +105,7 @@ export default function Confirm() {
       const msg = e instanceof Error ? e.message : String(e);
       if (msg.includes('slot_full')) {
         Alert.alert('Slot penuh', 'Slot baru saja terisi. Pilih slot lain.', [
-          { text: 'OK', onPress: () => router.back() },
+          { text: 'OK', onPress: () => safeBack('/(tabs)') },
         ]);
       } else {
         Alert.alert('Gagal', msg);
@@ -105,21 +117,25 @@ export default function Confirm() {
 
   return (
     <View style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, tabletContainer(r)]}>
         <Card>
           <Text style={styles.sectionLabel}>Ringkasan booking</Text>
           <Row icon="bicycle" text={bike ? `${bike.brand} ${bike.model} · ${bike.plate}` : '…'} />
           <Row icon="build" text={workshop.name} />
-          <Row
-            icon="calendar"
-            text={new Date(slot.slot_at).toLocaleString('id-ID', {
-              weekday: 'long',
-              day: '2-digit',
-              month: 'long',
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
-          />
+          {draft.isHomeService ? (
+            <Row icon="home" text={`Home service · ${draft.homeAddress ?? 'alamat via GPS'}`} />
+          ) : (
+            <Row
+              icon="calendar"
+              text={new Date(slot!.slot_at).toLocaleString('id-ID', {
+                weekday: 'long',
+                day: '2-digit',
+                month: 'long',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            />
+          )}
           <Row icon="construct" text={`${service.name} · ${service.duration_min} menit`} />
         </Card>
 
@@ -153,6 +169,12 @@ export default function Confirm() {
             <Text style={styles.payLabel}>Estimasi total servis</Text>
             <Text style={styles.payValue}>{formatRp(total)}</Text>
           </View>
+          {homeFee > 0 && (
+            <View style={styles.payRow}>
+              <Text style={styles.payLabel}>Termasuk biaya home service</Text>
+              <Text style={styles.payValue}>{formatRp(homeFee)}</Text>
+            </View>
+          )}
           <View style={styles.payRow}>
             <Text style={styles.payLabel}>Deposit (dibayar sekarang)</Text>
             <Text style={styles.payDeposit}>{formatRp(DEPOSIT_AMOUNT)}</Text>
@@ -170,12 +192,14 @@ export default function Confirm() {
         </Card>
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: Math.max(28, insets.bottom + 8) }, tabletContainer(r)]}>
         <Pressable style={[styles.payBtn, busy && styles.payBtnBusy]} onPress={pay} disabled={busy}>
           {busy ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.payBtnText}>Bayar deposit {formatRp(DEPOSIT_AMOUNT)} via AstraPay</Text>
+            <Text style={styles.payBtnText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
+              Bayar deposit {formatRp(DEPOSIT_AMOUNT)} via AstraPay
+            </Text>
           )}
         </Pressable>
       </View>

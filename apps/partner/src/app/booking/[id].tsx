@@ -1,29 +1,49 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
+import * as Haptics from 'expo-haptics';
 import { formatRp, type BookingStatus } from '@umotor/shared';
-import { Card, StatusBadge, colors } from '@/components/ui';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Card, ErrorState, StatusBadge, colors, useIsWide } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import type { InboxRow } from '../(tabs)/index';
 
+type DetailRow = InboxRow & {
+  booking_parts: { qty: number; unit_price: number; spareparts: { name: string } | null }[];
+};
+
 export default function BookingDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const wide = useIsWide();
+  const insets = useSafeAreaInsets();
   const qc = useQueryClient();
+  const [copied, setCopied] = useState(false);
+
+  const copyToken = async (token: string) => {
+    await Clipboard.setStringAsync(token);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
 
   const booking = useQuery({
     queryKey: ['booking', id],
     enabled: !!id,
-    queryFn: async (): Promise<InboxRow | null> => {
+    // Status can change from the consumer phone (cancel) — poll as realtime fallback.
+    refetchInterval: 10_000,
+    queryFn: async (): Promise<DetailRow | null> => {
       const { data, error } = await supabase
         .from('bookings')
         .select(
-          '*, users(name), motorcycles(plate, brand, model), services(name, duration_min), slots(slot_at)',
+          '*, users(name), motorcycles(plate, brand, model), services(name, duration_min, code), slots(slot_at), booking_parts(qty, unit_price, spareparts(name))',
         )
         .eq('id', id!)
         .single();
       if (error) throw error;
-      return data as InboxRow;
+      return data as DetailRow;
     },
   });
 
@@ -58,6 +78,7 @@ export default function BookingDetail() {
 
   const b = booking.data;
   if (!b) {
+    if (booking.isError) return <ErrorState onRetry={() => booking.refetch()} />;
     return <Text style={styles.loading}>{booking.isLoading ? 'Memuat…' : 'Booking tidak ditemukan.'}</Text>;
   }
 
@@ -92,10 +113,15 @@ export default function BookingDetail() {
           : null;
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.scroll}
+      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 16 }, wide && styles.contentWide]}
+    >
       <Card>
         <View style={styles.row}>
-          <Text style={styles.customer}>{b.users?.name ?? '—'}</Text>
+          <Text style={styles.customer} numberOfLines={1}>
+            {b.users?.name ?? '—'}
+          </Text>
           <StatusBadge status={b.status} />
         </View>
         <Text style={styles.bike}>
@@ -119,14 +145,44 @@ export default function BookingDetail() {
                 })
               : b.is_home_service
                 ? `Home service — ${b.home_address ?? 'alamat via GPS'}`
-                : '—'
+                : b.booking_parts.length > 0
+                  ? 'Pasang sparepart di bengkel'
+                  : '—'
           }
         />
         <Row label="Deposit" value={`${formatRp(b.deposit_amount)} · Lunas`} />
         <Row label="Total" value={b.total_amount != null ? formatRp(b.total_amount) : '—'} />
         <Row label="Sisa tagihan" value={formatRp(remaining)} />
-        <Row label="QR token" value={b.qr_token} />
+        <Pressable style={styles.tokenRow} onPress={() => copyToken(b.qr_token)} hitSlop={6}>
+          <Text style={styles.detailLabel}>QR token</Text>
+          <View style={styles.tokenValue}>
+            <Text style={styles.detailValue} numberOfLines={1}>
+              {b.qr_token}
+            </Text>
+            <Ionicons
+              name={copied ? 'checkmark-circle' : 'copy-outline'}
+              size={16}
+              color={copied ? colors.accent : colors.primary}
+            />
+          </View>
+        </Pressable>
+        {copied && <Text style={styles.copied}>Token disalin</Text>}
       </Card>
+
+      {b.booking_parts.length > 0 && (
+        <Card>
+          <Text style={styles.partsTitle}>Sparepart dipesan</Text>
+          {b.booking_parts.map((p, i) => (
+            <View key={i} style={styles.detailRow}>
+              <Text style={styles.detailLabel}>
+                {p.spareparts?.name ?? 'Sparepart'}
+                {p.qty > 1 ? ` ×${p.qty}` : ''}
+              </Text>
+              <Text style={styles.detailValue}>{formatRp(p.unit_price * p.qty)}</Text>
+            </View>
+          ))}
+        </Card>
+      )}
 
       {primary && (
         <Pressable
@@ -174,6 +230,7 @@ function Row({ label, value }: { label: string; value: string }) {
 const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: '#f3f6fb' },
   content: { padding: 16, gap: 12 },
+  contentWide: { maxWidth: 760, width: '100%', alignSelf: 'center' },
   loading: { textAlign: 'center', color: '#98a2b3', marginTop: 48 },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   customer: { fontSize: 18, fontWeight: '800', color: '#0b1727' },
@@ -186,6 +243,16 @@ const styles = StyleSheet.create({
   },
   detailLabel: { color: '#667085' },
   detailValue: { color: '#0b1727', fontWeight: '600', flexShrink: 1, textAlign: 'right' },
+  tokenRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+    gap: 12,
+  },
+  tokenValue: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 },
+  copied: { color: colors.accent, fontSize: 12, fontWeight: '700', textAlign: 'right', marginTop: 2 },
+  partsTitle: { fontWeight: '800', color: '#0b1727', fontSize: 14, marginBottom: 4 },
   action: { borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
   actionBusy: { opacity: 0.6 },
   actionText: { color: '#fff', fontSize: 16, fontWeight: '700' },

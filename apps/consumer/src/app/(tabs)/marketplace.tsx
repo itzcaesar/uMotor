@@ -16,7 +16,7 @@ import {
   type ComponentType,
   type SparepartListing,
 } from '@umotor/shared';
-import { Card } from '@/components/ui';
+import { Card, tabletContainer, useResponsive } from '@/components/ui';
 import { useCart } from '@/lib/cart';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
@@ -49,6 +49,7 @@ export default function Marketplace() {
   const userId = useSession((s) => s.userId);
   const add = useCart((s) => s.add);
   const [model, setModel] = useState<string>('all');
+  const r = useResponsive();
 
   const market = useQuery({
     queryKey: ['marketplace', userId],
@@ -101,8 +102,11 @@ export default function Marketplace() {
 
   return (
     <FlatList
+      key={r.columns}
+      numColumns={r.columns}
+      columnWrapperStyle={r.columns > 1 ? styles.columns : undefined}
       style={styles.list}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, tabletContainer(r)]}
       data={list}
       keyExtractor={(p) => p.id}
       refreshControl={
@@ -173,7 +177,7 @@ export default function Marketplace() {
         </View>
       }
       renderItem={({ item }) => (
-        <Card style={styles.row}>
+        <Card style={[styles.row, styles.cellCard]}>
           <View style={styles.thumb}>
             <Ionicons name="construct-outline" size={24} color={colors.primary} />
           </View>
@@ -214,6 +218,8 @@ export default function Marketplace() {
 const styles = StyleSheet.create({
   list: { flex: 1, backgroundColor: '#f3f6fb' },
   content: { padding: 16, gap: 12 },
+  columns: { gap: 12 },
+  cellCard: { flex: 1 },
   header: { gap: 14, marginBottom: 2 },
   chips: { gap: 8, paddingRight: 8 },
   chip: {

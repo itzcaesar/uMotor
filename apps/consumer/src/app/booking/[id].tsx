@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
@@ -12,7 +12,7 @@ import {
   type Service,
   type Workshop,
 } from '@umotor/shared';
-import { Card } from '@/components/ui';
+import { Card, tabletContainer, useResponsive } from '@/components/ui';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 
@@ -42,10 +42,13 @@ export default function BookingStatusScreen() {
   const [celebrate, setCelebrate] = useState(false);
   const celebrated = useRef(false);
   const [scoreAnim, setScoreAnim] = useState<{ from: number; to: number; value: number } | null>(null);
+  const r = useResponsive();
 
   const booking = useQuery({
     queryKey: ['booking-detail', id],
     enabled: !!id,
+    // Polling fallback so the stepper still advances if realtime drops on stage.
+    refetchInterval: 10_000,
     queryFn: async (): Promise<BookingDetail> => {
       const { data, error } = await supabase
         .from('bookings')
@@ -67,23 +70,9 @@ export default function BookingStatusScreen() {
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'bookings', filter: `id=eq.${id}` },
-        (payload) => {
+        () => {
           qc.invalidateQueries({ queryKey: ['booking-detail', id] });
           qc.invalidateQueries({ queryKey: ['bookings', userId] });
-          // The demo finale: completion celebration, exactly once (PRD 01 §4.7).
-          if ((payload.new as Booking).status === 'completed' && !celebrated.current) {
-            celebrated.current = true;
-            supabase
-              .from('motoscore')
-              .select('score')
-              .eq('user_id', userId!)
-              .single()
-              .then(({ data }) => {
-                const to = data?.score ?? 725;
-                setScoreAnim({ from: to - 5, to, value: to - 5 });
-                setCelebrate(true);
-              });
-          }
         },
       )
       .subscribe();
@@ -92,6 +81,36 @@ export default function BookingStatusScreen() {
     };
   }, [id, qc, userId]);
 
+  // The demo finale: completion celebration, exactly once (PRD 01 §4.7).
+  // Driven by the query data (not the realtime payload) so it still fires if the
+  // websocket drops mid-pitch — the 10s poll catches the `completed` status too.
+  // prevStatus seeds to the first observed status, so reopening an already-
+  // completed booking doesn't replay the celebration.
+  const prevStatus = useRef<BookingStatus | null>(null);
+  useEffect(() => {
+    const status = booking.data?.status;
+    if (!status) return;
+    if (
+      prevStatus.current &&
+      prevStatus.current !== 'completed' &&
+      status === 'completed' &&
+      !celebrated.current
+    ) {
+      celebrated.current = true;
+      supabase
+        .from('motoscore')
+        .select('score')
+        .eq('user_id', userId!)
+        .single()
+        .then(({ data }) => {
+          const to = data?.score ?? 725;
+          setScoreAnim({ from: to - 5, to, value: to - 5 });
+          setCelebrate(true);
+        });
+    }
+    prevStatus.current = status;
+  }, [booking.data?.status, userId]);
+
   // Count-up animation 720 → 725.
   useEffect(() => {
     if (!celebrate || !scoreAnim) return;
@@ -99,6 +118,26 @@ export default function BookingStatusScreen() {
     const t = setTimeout(() => setScoreAnim((s) => (s ? { ...s, value: s.value + 1 } : s)), 350);
     return () => clearTimeout(t);
   }, [celebrate, scoreAnim]);
+
+  // pending/confirmed → cancelled is a legal transition; the RPC frees the
+  // slot and refunds the deposit to the wallet.
+  const cancel = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc('update_booking_status', {
+        p_booking_id: id,
+        p_status: 'cancelled',
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries();
+      Alert.alert(
+        'Booking dibatalkan',
+        `Deposit ${formatRp(booking.data?.deposit_amount ?? 0)} dikembalikan ke saldo AstraPay.`,
+      );
+    },
+    onError: (e) => Alert.alert('Gagal', e.message),
+  });
 
   const b = booking.data;
   if (!b) {
@@ -111,7 +150,7 @@ export default function BookingStatusScreen() {
 
   return (
     <View style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, tabletContainer(r)]}>
         {/* Status stepper */}
         <Card>
           {cancelled ? (
@@ -128,7 +167,9 @@ export default function BookingStatusScreen() {
                     <View style={[styles.stepDot, done && styles.stepDotDone]}>
                       <Ionicons name={s.icon} size={16} color={done ? '#fff' : '#98a2b3'} />
                     </View>
-                    <Text style={[styles.stepLabel, done && styles.stepLabelDone]}>{s.label}</Text>
+                    <Text style={[styles.stepLabel, done && styles.stepLabelDone]} numberOfLines={1}>
+                      {s.label}
+                    </Text>
                     {i < STEPS.length - 1 && (
                       <View style={[styles.stepLine, i < idx && styles.stepLineDone]} />
                     )}
@@ -167,7 +208,9 @@ export default function BookingStatusScreen() {
                     hour: '2-digit',
                     minute: '2-digit',
                   })
-                : 'Home service'
+                : b.is_home_service
+                  ? 'Home service'
+                  : 'Pasang sparepart di bengkel'
             }
           />
           <InfoRow label="Servis" value={b.services?.name ?? '—'} />
@@ -184,6 +227,27 @@ export default function BookingStatusScreen() {
             value={formatRp(remaining)}
           />
         </Card>
+
+        {(b.status === 'pending' || b.status === 'confirmed') && (
+          <Pressable
+            style={styles.cancelBtn}
+            disabled={cancel.isPending}
+            onPress={() =>
+              Alert.alert(
+                'Batalkan booking?',
+                `Slot dilepas dan deposit ${formatRp(b.deposit_amount)} dikembalikan ke saldo AstraPay.`,
+                [
+                  { text: 'Kembali', style: 'cancel' },
+                  { text: 'Batalkan booking', style: 'destructive', onPress: () => cancel.mutate() },
+                ],
+              )
+            }
+          >
+            <Text style={styles.cancelBtnText}>
+              {cancel.isPending ? 'Membatalkan…' : 'Batalkan booking'}
+            </Text>
+          </Pressable>
+        )}
       </ScrollView>
 
       {/* Completion celebration overlay */}
@@ -264,6 +328,8 @@ const styles = StyleSheet.create({
   inProgress: { marginTop: 12, textAlign: 'center', color: colors.primary, fontWeight: '600', fontSize: 13 },
   cancelled: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   cancelledText: { color: colors.danger, fontWeight: '600', flexShrink: 1 },
+  cancelBtn: { alignItems: 'center', padding: 12 },
+  cancelBtnText: { color: colors.danger, fontWeight: '700' },
   qrCard: { alignItems: 'center', gap: 12, paddingVertical: 24 },
   qrTitle: { fontWeight: '700', color: '#0b1727', fontSize: 14 },
   qrBox: { padding: 14, backgroundColor: '#fff', borderRadius: 14 },

@@ -4,7 +4,7 @@ import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, formatRp, type Workshop } from '@umotor/shared';
-import { Card } from '@/components/ui';
+import { Card, tabletContainer, useResponsive } from '@/components/ui';
 import { useDraft } from '@/lib/draft';
 import { supabase } from '@/lib/supabase';
 
@@ -21,6 +21,7 @@ export default function WorkshopList() {
   const setBike = useDraft((s) => s.setBike);
   const setWorkshop = useDraft((s) => s.setWorkshop);
   const [filter, setFilter] = useState<Filter>('all');
+  const r = useResponsive();
 
   // Entering this screen starts a fresh draft for the chosen bike.
   useEffect(() => {
@@ -52,8 +53,11 @@ export default function WorkshopList() {
 
   return (
     <FlatList
+      key={r.columns}
+      numColumns={r.columns}
+      columnWrapperStyle={r.columns > 1 ? styles.columns : undefined}
       style={styles.list}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, tabletContainer(r)]}
       data={list}
       keyExtractor={(w) => w.id}
       ListHeaderComponent={
@@ -73,12 +77,13 @@ export default function WorkshopList() {
       }
       renderItem={({ item }) => (
         <Pressable
+          style={styles.cell}
           onPress={() => {
             setWorkshop(item);
             router.push({ pathname: '/booking/workshop/[id]', params: { id: item.id } });
           }}
         >
-          <Card style={styles.row}>
+          <Card style={[styles.row, styles.cellCard]}>
             <View style={styles.thumb}>
               <Ionicons name="build" size={24} color={colors.primary} />
             </View>
@@ -126,6 +131,9 @@ export default function WorkshopList() {
 const styles = StyleSheet.create({
   list: { flex: 1, backgroundColor: '#f3f6fb' },
   content: { padding: 16, gap: 12 },
+  columns: { gap: 12 },
+  cell: { flex: 1 },
+  cellCard: { flex: 1 },
   chips: { flexDirection: 'row', gap: 8, marginBottom: 4 },
   chip: {
     paddingHorizontal: 14,

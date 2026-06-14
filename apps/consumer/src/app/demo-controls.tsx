@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { colors, DEMO_BIKE_VARIO_ID, type Motorcycle } from '@umotor/shared';
@@ -140,6 +141,14 @@ export default function DemoControls() {
             'Semua notifikasi ditandai terbaca.',
           )
         }
+      />
+
+      <Action
+        icon="navigate"
+        title="Buka Ride Tracking → Simulasi"
+        desc="Putar rute demo di peta langsung (tanpa harus berkendara)"
+        busy={false}
+        onPress={() => router.push('/ride')}
       />
 
       <Text style={styles.warn}>

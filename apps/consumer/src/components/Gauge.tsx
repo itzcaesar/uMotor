@@ -1,4 +1,4 @@
-import { Text, View, StyleSheet } from 'react-native';
+import { Text, View, StyleSheet, useWindowDimensions } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { colors } from '@umotor/shared';
 
@@ -23,30 +23,35 @@ export function ScoreGauge({ score }: { score: number }) {
     : score < 740 ? { label: 'Baik', color: colors.primary }
     : { label: 'Sangat Baik', color: colors.accent };
 
-  const w = 240;
-  const r = 100;
+  // Scale the whole gauge uniformly to the viewport so it never clips on a
+  // 320pt phone and isn't undersized on a tablet. Base geometry is 240×130.
+  const { width } = useWindowDimensions();
+  const w = Math.min(Math.max(width - 64, 220), 300);
+  const f = w / 240;
+  const r = 100 * f;
   const cx = w / 2;
-  const cy = 110;
+  const cy = 110 * f;
+  const sw = 16 * f;
 
   return (
     <View style={styles.wrap}>
-      <Svg width={w} height={130}>
-        <Path d={arcPath(cx, cy, r, 0, 180)} stroke="#eef1f6" strokeWidth={16} fill="none" strokeLinecap="round" />
+      <Svg width={w} height={130 * f}>
+        <Path d={arcPath(cx, cy, r, 0, 180)} stroke="#eef1f6" strokeWidth={sw} fill="none" strokeLinecap="round" />
         {pct > 0.01 && (
           <Path
             d={arcPath(cx, cy, r, 0, pct * 180)}
             stroke={band.color}
-            strokeWidth={16}
+            strokeWidth={sw}
             fill="none"
             strokeLinecap="round"
           />
         )}
       </Svg>
-      <View style={styles.center}>
-        <Text style={[styles.score, { color: band.color }]}>{score}</Text>
+      <View style={[styles.center, { top: 52 * f }]}>
+        <Text style={[styles.score, { color: band.color, fontSize: 44 * f }]}>{score}</Text>
         <Text style={styles.band}>{band.label}</Text>
       </View>
-      <View style={styles.range}>
+      <View style={[styles.range, { width: w - 24 }]}>
         <Text style={styles.rangeText}>300</Text>
         <Text style={styles.rangeText}>850</Text>
       </View>

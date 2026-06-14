@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ActivityIndicator,
@@ -9,6 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import {
   colors,
@@ -17,7 +18,7 @@ import {
   payAstraPay,
   type Motorcycle,
 } from '@umotor/shared';
-import { Card } from '@/components/ui';
+import { Card, tabletContainer, useResponsive } from '@/components/ui';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 
@@ -45,12 +46,13 @@ export default function FinanceHub() {
   const [busy, setBusy] = useState<string | null>(null);
   const [fuelBike, setFuelBike] = useState<string | null>(null);
   const [liters, setLiters] = useState(2);
+  const r = useResponsive();
 
   const data = useQuery({
     queryKey: ['finance', userId],
     enabled: !!userId,
     queryFn: async () => {
-      const [bills, bikes, spend] = await Promise.all([
+      const [bills, bikes, spend, user] = await Promise.all([
         supabase.from('bills').select('*').eq('user_id', userId!).order('paid').order('due_date'),
         supabase.from('motorcycles').select('*').eq('user_id', userId!).order('created_at'),
         supabase
@@ -58,11 +60,13 @@ export default function FinanceHub() {
           .select('amount')
           .eq('user_id', userId!)
           .gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()),
+        supabase.from('users').select('astrapay_balance').eq('id', userId!).single(),
       ]);
       return {
         bills: (bills.data ?? []) as Bill[],
         bikes: (bikes.data ?? []) as Motorcycle[],
         monthSpend: (spend.data ?? []).reduce((s, p) => s + (p.amount as number), 0),
+        balance: (user.data as { astrapay_balance: number } | null)?.astrapay_balance ?? 0,
       };
     },
   });
@@ -72,31 +76,25 @@ export default function FinanceHub() {
   const fuelAmount = liters * FUEL_PRICE_PER_L;
   const estKm = selectedBike ? estimateOdometer(liters, Number(selectedBike.avg_consumption_kml)) : 0;
 
-  const payBill = async (bill: Bill) => {
-    if (!userId || busy) return;
-    setBusy(bill.id);
-    try {
-      await payAstraPay(bill.amount, bill.name);
-      const [upd, pay, user] = await Promise.all([
-        supabase.from('bills').update({ paid: true }).eq('id', bill.id),
-        supabase.from('payments').insert({ user_id: userId, type: 'bill', amount: bill.amount }),
-        supabase.from('users').select('astrapay_balance').eq('id', userId).single(),
-      ]);
-      if (upd.error || pay.error) throw upd.error ?? pay.error;
-      if (user.data) {
-        await supabase
-          .from('users')
-          .update({ astrapay_balance: Math.max(0, user.data.astrapay_balance - bill.amount) })
-          .eq('id', userId);
-      }
-      qc.invalidateQueries();
-      Alert.alert('Lunas', `${bill.name} dibayar via AstraPay.`);
-    } catch (e) {
-      Alert.alert('Gagal', e instanceof Error ? e.message : 'Coba lagi.');
-    } finally {
-      setBusy(null);
-    }
-  };
+  // Vehicle tax (STNK) gets its own prominent section; the rest list below.
+  // Within each group unpaid leads, paid collapses under.
+  const { taxBills, unpaid, paid, dueTotal, unpaidCount } = useMemo(() => {
+    const all = data.data?.bills ?? [];
+    const allUnpaid = all.filter((b) => !b.paid);
+    const others = all.filter((b) => b.type !== 'stnk');
+    const otherUnpaid = others.filter((b) => !b.paid);
+    return {
+      taxBills: all.filter((b) => b.type === 'stnk'),
+      unpaid: otherUnpaid,
+      paid: others.filter((b) => b.paid),
+      dueTotal: allUnpaid.reduce((s, b) => s + b.amount, 0),
+      unpaidCount: allUnpaid.length,
+    };
+  }, [data.data?.bills]);
+
+  // STNK & cicilan open a detail/receipt screen with the full cost breakdown,
+  // where the actual AstraPay payment is confirmed. Fuel top-up stays inline below.
+  const openBill = (bill: Bill) => router.push(`/finance/bill/${bill.id}`);
 
   // The proposal's organic odometer trick (Modul 5): fuel top-up nudges the
   // odometer via liters × avg consumption — no manual input.
@@ -129,16 +127,47 @@ export default function FinanceHub() {
     }
   };
 
+  const loading = data.isLoading;
+
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
-      {/* Monthly summary */}
+    <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, tabletContainer(r)]}>
+      {/* Wallet + monthly summary */}
       <Card style={styles.summary}>
-        <Text style={styles.summaryLabel}>Pengeluaran motor bulan ini</Text>
-        <Text style={styles.summaryValue}>
-          {data.data ? formatRp(data.data.monthSpend) : '…'}
+        <Text style={styles.summaryLabel}>Saldo AstraPay</Text>
+        <Text style={styles.summaryValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+          {data.data ? formatRp(data.data.balance) : '…'}
         </Text>
+        <View style={styles.summarySpendRow}>
+          <Text style={styles.summarySpendLabel}>Pengeluaran bulan ini</Text>
+          <Text style={styles.summarySpendValue} numberOfLines={1}>
+            {data.data ? formatRp(data.data.monthSpend) : '…'}
+          </Text>
+        </View>
         <Text style={styles.summaryHint}>Semua tagihan motor dalam satu dashboard AstraPay.</Text>
       </Card>
+
+      {/* Upcoming bills summary */}
+      {unpaidCount > 0 && (
+        <Card style={styles.dueCard}>
+          <View style={styles.dueIcon}>
+            <Ionicons name="alert-circle" size={20} color={colors.warning} />
+          </View>
+          <View style={styles.dueInfo}>
+            <Text style={styles.dueTitle}>{unpaidCount} tagihan belum dibayar</Text>
+            <Text style={styles.dueSub}>Total {formatRp(dueTotal)} menunggu pembayaran</Text>
+          </View>
+        </Card>
+      )}
+
+      {/* Vehicle tax (STNK) — paid straight from AstraPay */}
+      {taxBills.length > 0 && (
+        <>
+          <Text style={styles.sectionTitle}>Pajak & STNK</Text>
+          {taxBills.map((bill) => (
+            <TaxCard key={bill.id} bill={bill} onOpen={openBill} />
+          ))}
+        </>
+      )}
 
       {/* Fuel top-up with organic odometer update */}
       <Text style={styles.sectionTitle}>Top-up BBM</Text>
@@ -197,67 +226,215 @@ export default function FinanceHub() {
 
       {/* Bills */}
       <Text style={styles.sectionTitle}>Tagihan</Text>
-      {(data.data?.bills ?? []).map((bill) => {
-        const daysLeft = Math.ceil(
-          (new Date(bill.due_date).getTime() - Date.now()) / 86400000,
-        );
-        const urgent = !bill.paid && daysLeft <= 14;
-        return (
-          <Card key={bill.id} style={styles.billRow}>
-            <View style={[styles.billIcon, bill.paid && styles.billIconPaid]}>
-              <Ionicons
-                name={BILL_ICONS[bill.type]}
-                size={18}
-                color={bill.paid ? colors.accent : colors.primary}
-              />
-            </View>
-            <View style={styles.billInfo}>
-              <Text style={styles.billName}>{bill.name}</Text>
-              {bill.paid ? (
-                <Text style={styles.billPaid}>Lunas</Text>
-              ) : (
-                <Text style={[styles.billDue, urgent && styles.billUrgent]}>
-                  Jatuh tempo{' '}
-                  {new Date(bill.due_date).toLocaleDateString('id-ID', {
-                    day: '2-digit',
-                    month: 'long',
-                  })}
-                  {urgent ? ` · ${daysLeft} hari lagi` : ''}
-                </Text>
-              )}
-            </View>
-            <View style={styles.billRight}>
-              <Text style={styles.billAmount}>{formatRp(bill.amount)}</Text>
-              {!bill.paid && (
-                <Pressable
-                  style={[styles.payBtn, busy === bill.id && styles.btnBusy]}
-                  onPress={() => payBill(bill)}
-                  disabled={!!busy}
-                >
-                  {busy === bill.id ? (
-                    <ActivityIndicator color="#fff" size="small" />
-                  ) : (
-                    <Text style={styles.payBtnText}>Bayar</Text>
-                  )}
-                </Pressable>
-              )}
-            </View>
-          </Card>
-        );
-      })}
-      {data.data?.bills.length === 0 && <Text style={styles.empty}>Tidak ada tagihan.</Text>}
+      {loading && (
+        <View style={styles.loadingRow}>
+          <ActivityIndicator color={colors.primary} />
+          <Text style={styles.loadingText}>Memuat tagihan…</Text>
+        </View>
+      )}
+      {unpaid.map((bill) => (
+        <BillCard key={bill.id} bill={bill} onOpen={openBill} />
+      ))}
+
+      {paid.length > 0 && (
+        <>
+          <Text style={styles.subSectionTitle}>Sudah lunas</Text>
+          {paid.map((bill) => (
+            <BillCard key={bill.id} bill={bill} onOpen={openBill} />
+          ))}
+        </>
+      )}
+
+      {!loading && data.data?.bills.length === 0 && (
+        <Text style={styles.empty}>Tidak ada tagihan.</Text>
+      )}
+
+      {/* Cross-sell into MotoScore financial products */}
+      <Pressable onPress={() => router.push('/motoscore')}>
+        <Card style={styles.productLink}>
+          <View style={styles.productIcon}>
+            <Ionicons name="trending-up" size={20} color="#fff" />
+          </View>
+          <View style={styles.productInfo}>
+            <Text style={styles.productTitle}>Produk finansial dari MotoScore</Text>
+            <Text style={styles.productDesc}>
+              Pinjaman, asuransi, dan cicilan 0% yang terbuka dari skor perawatanmu.
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#98a2b3" />
+        </Card>
+      </Pressable>
     </ScrollView>
+  );
+}
+
+function TaxCard({ bill, onOpen }: { bill: Bill; onOpen: (bill: Bill) => void }) {
+  const daysLeft = Math.ceil((new Date(bill.due_date).getTime() - Date.now()) / 86400000);
+  const urgent = !bill.paid && daysLeft <= 30;
+  const dueLabel = new Date(bill.due_date).toLocaleDateString('id-ID', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  });
+  return (
+    <Pressable onPress={() => onOpen(bill)}>
+      <Card style={[styles.taxCard, bill.paid && styles.taxCardPaid]}>
+        <View style={styles.taxTop}>
+          <View style={[styles.taxIcon, bill.paid && styles.taxIconPaid]}>
+            <Ionicons
+              name={bill.paid ? 'shield-checkmark' : 'document-text'}
+              size={20}
+              color={bill.paid ? colors.accent : colors.primary}
+            />
+          </View>
+          <View style={styles.taxInfo}>
+            <Text style={styles.taxName}>{bill.name}</Text>
+            {bill.paid ? (
+              <Text style={styles.taxPaid}>Lunas tahun ini</Text>
+            ) : (
+              <Text style={[styles.taxDue, urgent && styles.taxUrgent]}>
+                Jatuh tempo {dueLabel}
+                {urgent ? ` · ${daysLeft} hari lagi` : ''}
+              </Text>
+            )}
+          </View>
+          <Text style={styles.taxAmount}>{formatRp(bill.amount)}</Text>
+        </View>
+        <View style={[styles.taxBtn, bill.paid && styles.taxBtnGhost]}>
+          <Ionicons
+            name={bill.paid ? 'receipt-outline' : 'wallet'}
+            size={16}
+            color={bill.paid ? colors.primary : '#fff'}
+          />
+          <Text style={[styles.taxBtnText, bill.paid && styles.taxBtnTextGhost]}>
+            {bill.paid ? 'Lihat rincian' : 'Lihat rincian & bayar'}
+          </Text>
+        </View>
+      </Card>
+    </Pressable>
+  );
+}
+
+function BillCard({ bill, onOpen }: { bill: Bill; onOpen: (bill: Bill) => void }) {
+  const daysLeft = Math.ceil((new Date(bill.due_date).getTime() - Date.now()) / 86400000);
+  const urgent = !bill.paid && daysLeft <= 14;
+  return (
+    <Pressable onPress={() => onOpen(bill)}>
+      <Card style={styles.billRow}>
+        <View style={[styles.billIcon, bill.paid && styles.billIconPaid]}>
+          <Ionicons
+            name={BILL_ICONS[bill.type]}
+            size={18}
+            color={bill.paid ? colors.accent : colors.primary}
+          />
+        </View>
+        <View style={styles.billInfo}>
+          <Text style={styles.billName}>{bill.name}</Text>
+          {bill.paid ? (
+            <Text style={styles.billPaid}>Lunas</Text>
+          ) : (
+            <Text style={[styles.billDue, urgent && styles.billUrgent]}>
+              Jatuh tempo{' '}
+              {new Date(bill.due_date).toLocaleDateString('id-ID', {
+                day: '2-digit',
+                month: 'long',
+              })}
+              {urgent ? ` · ${daysLeft} hari lagi` : ''}
+            </Text>
+          )}
+        </View>
+        <View style={styles.billRight}>
+          <Text style={styles.billAmount}>{formatRp(bill.amount)}</Text>
+          <Ionicons name="chevron-forward" size={18} color="#c2cad6" />
+        </View>
+      </Card>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: '#f3f6fb' },
   content: { padding: 16, gap: 12, paddingBottom: 32 },
-  summary: { backgroundColor: colors.primary, borderColor: colors.primary, gap: 2 },
-  summaryLabel: { color: '#cfe0f7', fontSize: 13, fontWeight: '600' },
+  summary: { backgroundColor: colors.primary, borderColor: colors.primary, gap: 4 },
+  summaryLabel: { color: '#cfe0f7', fontSize: 12, fontWeight: '600' },
   summaryValue: { color: '#fff', fontSize: 30, fontWeight: '800' },
-  summaryHint: { color: '#9fc0ec', fontSize: 11, marginTop: 4 },
+  summarySpendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#2a5fb0',
+    gap: 12,
+  },
+  summarySpendLabel: { color: '#cfe0f7', fontSize: 13, fontWeight: '600', flexShrink: 1 },
+  summarySpendValue: { color: '#fff', fontSize: 15, fontWeight: '800' },
+  summaryHint: { color: '#9fc0ec', fontSize: 11, marginTop: 8 },
+  dueCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#fff8ec',
+    borderColor: '#f6e2bf',
+  },
+  dueIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#fdeecd',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dueInfo: { flex: 1, gap: 2 },
+  dueTitle: { fontWeight: '800', color: '#0b1727', fontSize: 14 },
+  dueSub: { color: '#8a6d3b', fontSize: 12 },
   sectionTitle: { fontSize: 15, fontWeight: '800', color: '#0b1727', marginTop: 4 },
+  subSectionTitle: { fontSize: 13, fontWeight: '700', color: '#667085', marginTop: 4 },
+  taxCard: { gap: 12, borderColor: '#dbe7fa' },
+  taxCardPaid: { borderColor: '#b5e9d4', backgroundColor: '#f4fbf7' },
+  taxTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  taxIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#eef4fd',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  taxIconPaid: { backgroundColor: '#e2f6ee' },
+  taxInfo: { flex: 1, gap: 2 },
+  taxName: { fontWeight: '700', color: '#0b1727', fontSize: 14 },
+  taxDue: { color: '#667085', fontSize: 12 },
+  taxUrgent: { color: colors.warning, fontWeight: '700' },
+  taxPaid: { color: colors.accent, fontSize: 12, fontWeight: '700' },
+  taxAmount: { fontWeight: '800', color: '#0b1727', fontSize: 15 },
+  taxBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 13,
+  },
+  taxBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  taxBtnGhost: { backgroundColor: '#eef4fd' },
+  taxBtnTextGhost: { color: colors.primary },
+  loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12 },
+  loadingText: { color: '#667085', fontSize: 13 },
+  productLink: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
+  productIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  productInfo: { flex: 1, gap: 2 },
+  productTitle: { fontWeight: '800', color: '#0b1727', fontSize: 14 },
+  productDesc: { color: '#667085', fontSize: 12, lineHeight: 16 },
   fuelCard: { gap: 12 },
   bikeChips: { flexDirection: 'row', gap: 8 },
   bikeChip: {

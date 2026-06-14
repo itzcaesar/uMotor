@@ -34,6 +34,19 @@
             "imageWidth": 76
           }
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "uMotor memakai lokasi untuk merekam rute, jarak, dan kecepatan perjalanan motor Anda.",
+          "locationAlwaysAndWhenInUsePermission": "uMotor memakai lokasi untuk merekam rute, jarak, dan kecepatan perjalanan motor Anda."
+        }
+      ],
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "uMotor memakai sensor gerak untuk mengenali jenis perjalanan (berkendara vs jalan kaki)."
+        }
       ]
     ],
     "experiments": {

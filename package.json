@@ -6,6 +6,9 @@
     "console:build": "pnpm --filter @umotor/console build",
     "consumer:start": "pnpm --filter @umotor/consumer start",
     "partner:start": "pnpm --filter @umotor/partner start",
-    "db:reset": "supabase db reset --linked"
+    "db:reset": "npx supabase db reset --linked"
+  },
+  "devDependencies": {
+    "supabase": "^2.106.0"
   }
 }

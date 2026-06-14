@@ -46,7 +46,8 @@ insert into workshops (id, name, type, tier, rating, address, lat, lng, distance
 insert into services (code, name, duration_min, base_price) values
   ('oil_change',   'Ganti oli',     30, 0),
   ('tune_up',      'Tune-up',       90, 100000),
-  ('battery_swap', 'Ganti aki',     45, 50000);
+  ('battery_swap', 'Ganti aki',     45, 50000),
+  ('pasang_sparepart', 'Pasang sparepart', 30, 0); -- marketplace "Pasang di bengkel" orders
 
 -- Slots: next 7 days, 09:00–16:00 hourly, for the 5 featured workshops.
 insert into slots (workshop_id, slot_at, capacity)
@@ -110,6 +111,80 @@ insert into notifications (user_id, type, title, body) values
   ('11111111-1111-1111-1111-111111111111', 'maintenance',
    'Waktunya ganti oli',
    'Oli motor D 4821 BJK sudah 80% interval (2.400/3.000 km), masih 600 km lagi. Ganti sekarang atau tunggu?');
+
+-- ═══ Demo user service history (so no consumer screen is ever empty) ════
+-- Budi's past services across both bikes — fills bike detail "Riwayat servis",
+-- the Booking tab, and (for jobs at AHASS Bandung Timur) the Partner earnings
+-- list with a real customer name. Dates relative to now() so they never stale.
+-- Does NOT touch components.last_service_km, so the 80%-oil demo state holds.
+insert into bookings (user_id, motorcycle_id, workshop_id, service_id, status,
+                      total_amount, deposit_amount, created_at, updated_at)
+select
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  v.bike::uuid,
+  (select id from workshops where name = v.workshop),
+  (select id from services where code = v.svc),
+  'completed'::booking_status,
+  v.total, 25000,
+  now() - make_interval(days => v.days_ago),
+  now() - make_interval(days => v.days_ago) + interval '3 hours'
+from (values
+  ('33333333-3333-3333-3333-333333333333', 'AHASS Bandung Timur', 'oil_change',     83000,  18),
+  ('33333333-3333-3333-3333-333333333333', 'AHASS Bandung Timur', 'tune_up',       175000,  78),
+  ('33333333-3333-3333-3333-333333333333', 'AHASS Kiaracondong',  'oil_change',     78000, 160),
+  ('33333333-3333-3333-3333-333333333333', 'AHASS Bandung Timur', 'oil_change',     83000, 250),
+  ('44444444-4444-4444-4444-444444444444', 'AHASS Bandung Timur', 'oil_change',     90000,  42),
+  ('44444444-4444-4444-4444-444444444444', 'AHASS Bandung Timur', 'battery_swap',  315000, 130),
+  ('44444444-4444-4444-4444-444444444444', 'Bengkel Jaya Motor',  'oil_change',     72000, 215)
+) as v(bike, workshop, svc, total, days_ago);
+
+-- One upcoming confirmed booking so the consumer Booking tab and the Partner
+-- inbox aren't empty at rest (the live demo adds another booking on top).
+with picked as (
+  select id from slots
+  where workshop_id = '22222222-2222-2222-2222-222222222222'
+    and slot_at > now() + interval '20 hours'
+  order by slot_at limit 1
+)
+insert into bookings (user_id, motorcycle_id, workshop_id, slot_id, service_id, status,
+                      total_amount, deposit_amount, created_at, updated_at)
+select
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  '44444444-4444-4444-4444-444444444444'::uuid,
+  '22222222-2222-2222-2222-222222222222'::uuid,
+  picked.id,
+  (select id from services where code = 'oil_change'),
+  'confirmed'::booking_status,
+  90000, 25000, now() - interval '5 hours', now() - interval '5 hours'
+from picked;
+
+update slots set booked_count = booked_count + 1
+where id = (
+  select id from slots
+  where workshop_id = '22222222-2222-2222-2222-222222222222'
+    and slot_at > now() + interval '20 hours'
+  order by slot_at limit 1
+);
+
+-- Yamalube + Filter oli (= Rp 83.000) attached to the oil changes.
+insert into booking_parts (booking_id, sparepart_id, qty, unit_price)
+select b.id, s.id, 1, s.price
+from bookings b
+join spareparts s on s.name in ('Yamalube 10W-30 0.8L', 'Filter oli')
+where b.user_id = '11111111-1111-1111-1111-111111111111'
+  and b.motorcycle_id = '33333333-3333-3333-3333-333333333333'
+  and b.status = 'completed'
+  and b.total_amount = 83000;
+
+-- Payments for Budi's history (the volume payments block below excludes him).
+insert into payments (user_id, booking_id, type, amount, created_at)
+select user_id, id, 'deposit', deposit_amount, created_at
+from bookings
+where user_id = '11111111-1111-1111-1111-111111111111' and status <> 'cancelled';
+insert into payments (user_id, booking_id, type, amount, created_at)
+select user_id, id, 'final', greatest(0, coalesce(total_amount, 0) - deposit_amount), updated_at
+from bookings
+where user_id = '11111111-1111-1111-1111-111111111111' and status = 'completed';
 
 -- ═══ Console volume (charts must look alive) ═════════════════════════
 
@@ -186,6 +261,61 @@ cross join svc
 cross join lateral (select random() as r,
                            now() - random() * interval '30 days' as ts) x;
 
+-- ═══ Demo workshop volume (Partner dashboard/earnings/queue look alive) ══
+-- ~22 completed jobs at AHASS Bandung Timur over the last 7 days; the first 6
+-- land "today" so Pendapatan hari ini & dashboard "Selesai hari ini" are > 0.
+with vol as (
+  select u.id as user_id,
+         (select m.id from motorcycles m where m.user_id = u.id limit 1) as motorcycle_id,
+         (row_number() over ())::int as rn
+  from users u
+  where u.id <> '11111111-1111-1111-1111-111111111111'
+  order by random() limit 22
+),
+svc as (select array_agg(id) as ids from services where code <> 'pasang_sparepart')
+insert into bookings (user_id, motorcycle_id, workshop_id, service_id, status,
+                      total_amount, deposit_amount, created_at, updated_at)
+select
+  v.user_id, v.motorcycle_id, '22222222-2222-2222-2222-222222222222'::uuid,
+  svc.ids[1 + floor(random() * cardinality(svc.ids))::int],
+  'completed'::booking_status,
+  (60000 + floor(random() * 200000))::int, 25000,
+  case when v.rn <= 6 then date_trunc('day', now()) + make_interval(hours => 8 + v.rn)
+       else now() - make_interval(days => (v.rn % 6) + 1) end,
+  case when v.rn <= 6 then date_trunc('day', now()) + make_interval(hours => 8 + v.rn, mins => 80)
+       else now() - make_interval(days => (v.rn % 6) + 1) + interval '2 hours' end
+from vol v cross join svc;
+
+-- A few live jobs on today's slots so the Antrian (queue) is populated.
+with today_slots as (
+  select id, (row_number() over (order by slot_at))::int as rn
+  from slots
+  where workshop_id = '22222222-2222-2222-2222-222222222222'
+    and slot_at::date = current_date
+),
+pick as (
+  select u.id as user_id,
+         (select m.id from motorcycles m where m.user_id = u.id limit 1) as motorcycle_id,
+         (row_number() over ())::int as rn
+  from users u where u.id <> '11111111-1111-1111-1111-111111111111' order by random() limit 3
+)
+insert into bookings (user_id, motorcycle_id, workshop_id, slot_id, service_id, status,
+                      total_amount, deposit_amount, created_at, updated_at)
+select p.user_id, p.motorcycle_id, '22222222-2222-2222-2222-222222222222'::uuid, t.id,
+  (select id from services where code = 'oil_change'),
+  (array['confirmed','checked_in','in_progress'])[p.rn]::booking_status,
+  (70000 + p.rn * 15000), 25000, now() - interval '2 hours', now() - interval '90 minutes'
+from pick p join today_slots t on t.rn = p.rn;
+
+update slots set booked_count = booked_count + 1
+where id in (
+  select id from (
+    select id, row_number() over (order by slot_at) rn
+    from slots where workshop_id = '22222222-2222-2222-2222-222222222222'
+      and slot_at::date = current_date
+  ) s where rn <= 3
+);
+
 -- Payments backing the volume bookings (deposit for all non-cancelled, final for completed)
 insert into payments (user_id, booking_id, type, amount, created_at)
 select user_id, id, 'deposit', deposit_amount, created_at
@@ -195,3 +325,47 @@ insert into payments (user_id, booking_id, type, amount, created_at)
 select user_id, id, 'final', greatest(0, coalesce(total_amount, 0) - deposit_amount),
        created_at + interval '3 hours'
 from bookings where status = 'completed' and user_id <> '11111111-1111-1111-1111-111111111111';
+
+-- ═══ Ride tracking demo data ═════════════════════════════════════════
+-- One "hero" ride carries a real route the summary screen draws on the SVG map;
+-- two more give the history list body. Stats stored directly (these are already
+-- finalized — finish_ride only runs for live/simulated rides during the demo).
+insert into rides (id, user_id, motorcycle_id, source, status, started_at, ended_at,
+                   distance_m, duration_s, avg_kmh, max_kmh, eco_score, harsh_events) values
+  ('aaaaaaaa-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
+   '33333333-3333-3333-3333-333333333333', 'gps', 'completed',
+   now() - interval '2 days', now() - interval '2 days' + interval '28 minutes',
+   12400, 1680, 26.6, 58.0, 92, 1),
+  ('aaaaaaaa-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111',
+   '33333333-3333-3333-3333-333333333333', 'gps', 'completed',
+   now() - interval '1 day', now() - interval '1 day' + interval '15 minutes',
+   6200, 900, 24.8, 47.0, 96, 0),
+  ('aaaaaaaa-0000-0000-0000-000000000003', '11111111-1111-1111-1111-111111111111',
+   '44444444-4444-4444-4444-444444444444', 'gps', 'completed',
+   now() - interval '3 days', now() - interval '3 days' + interval '35 minutes',
+   18900, 2100, 32.4, 71.0, 81, 3);
+
+-- Hero-ride route: a recognizable loop around east Bandung (~120 s between fixes).
+insert into ride_points (ride_id, ts, lat, lng, accuracy_m, speed_mps, activity)
+select 'aaaaaaaa-0000-0000-0000-000000000001',
+       (now() - interval '2 days') + make_interval(secs => p.idx * 120),
+       p.lat, p.lng, p.acc, p.spd, 'motorcycle'
+from (values
+  (0,  -6.9147, 107.6722, 8,  0.0),
+  (1,  -6.9131, 107.6760, 7,  11.5),
+  (2,  -6.9100, 107.6795, 6,  13.2),
+  (3,  -6.9072, 107.6831, 9,  12.0),
+  (4,  -6.9040, 107.6858, 7,  14.8),
+  (5,  -6.9012, 107.6829, 8,  10.4),
+  (6,  -6.8995, 107.6788, 6,  9.1),
+  (7,  -6.9020, 107.6749, 7,  12.7),
+  (8,  -6.9058, 107.6717, 8,  15.3),
+  (9,  -6.9090, 107.6688, 9,  13.9),
+  (10, -6.9122, 107.6669, 7,  11.2),
+  (11, -6.9150, 107.6693, 6,  8.6),
+  (12, -6.9152, 107.6722, 8,  4.0)
+) as p(idx, lat, lng, acc, spd);
+
+insert into ride_events (ride_id, ts, type, value, lat, lng) values
+  ('aaaaaaaa-0000-0000-0000-000000000001',
+   (now() - interval '2 days') + interval '11 minutes', 'harsh_brake', 4.2, -6.9040, 107.6858);

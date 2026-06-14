@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, CalendarCheck, Wrench } from "lucide-react";
+import { LayoutDashboard, CalendarCheck, Wrench, Users } from "lucide-react";
 
 const NAV = [
   { href: "/", label: "Overview", icon: LayoutDashboard },
   { href: "/bookings", label: "Bookings", icon: CalendarCheck },
   { href: "/workshops", label: "Workshops", icon: Wrench },
+  { href: "/users", label: "Users", icon: Users },
 ];
 
 export function Sidebar() {

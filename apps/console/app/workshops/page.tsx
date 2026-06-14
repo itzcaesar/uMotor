@@ -1,12 +1,103 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Search, Star } from "lucide-react";
-import type { Workshop } from "@umotor/shared";
+import { colors, type Workshop } from "@umotor/shared";
 import { getSupabase } from "@/lib/supabase";
-import { Card, Pill, SetupNotice } from "@/components/ui";
+import { Card, Pill, SectionHeader, SetupNotice } from "@/components/ui";
 
 type WorkshopRow = Workshop & { bookings: { count: number }[] };
+
+/**
+ * Geographic spread of partner workshops (PRD 03). Dependency-free SVG scatter
+ * over the Bandung bounding box — no map-tile lib, so it works offline on
+ * demo day. Dot size scales with booking volume; AHASS red, independent blue.
+ */
+function WorkshopMap({ rows }: { rows: WorkshopRow[] }) {
+  const points = rows.filter((w) => w.lat != null && w.lng != null);
+  if (points.length === 0) return null;
+
+  const lats = points.map((w) => Number(w.lat));
+  const lngs = points.map((w) => Number(w.lng));
+  const pad = 0.01;
+  const minLat = Math.min(...lats) - pad;
+  const maxLat = Math.max(...lats) + pad;
+  const minLng = Math.min(...lngs) - pad;
+  const maxLng = Math.max(...lngs) + pad;
+  const W = 920;
+  const H = 360;
+  const x = (lng: number) => ((lng - minLng) / (maxLng - minLng)) * W;
+  const y = (lat: number) => H - ((lat - minLat) / (maxLat - minLat)) * H;
+  const maxBookings = Math.max(1, ...points.map((w) => w.bookings[0]?.count ?? 0));
+
+  return (
+    <Card>
+      <SectionHeader
+        title="Peta sebaran bengkel"
+        subtitle="Bandung Raya — ukuran titik mengikuti volume booking. Arahkan kursor untuk nama bengkel."
+      />
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="w-full rounded-xl border border-border bg-[#f4f7fb]"
+        role="img"
+        aria-label="Peta sebaran bengkel mitra di Bandung"
+      >
+        {/* subtle grid so the scatter reads as a map, not a chart */}
+        {Array.from({ length: 7 }, (_, i) => (
+          <line
+            key={`v${i}`}
+            x1={(W / 7) * (i + 0.5)}
+            y1={0}
+            x2={(W / 7) * (i + 0.5)}
+            y2={H}
+            stroke="#e5ecf5"
+            strokeWidth={1}
+          />
+        ))}
+        {Array.from({ length: 4 }, (_, i) => (
+          <line
+            key={`h${i}`}
+            x1={0}
+            y1={(H / 4) * (i + 0.5)}
+            x2={W}
+            y2={(H / 4) * (i + 0.5)}
+            stroke="#e5ecf5"
+            strokeWidth={1}
+          />
+        ))}
+        {points.map((w) => {
+          const n = w.bookings[0]?.count ?? 0;
+          const r = 4 + (n / maxBookings) * 8;
+          const fill = w.type === "ahass" ? "#dc2626" : colors.primary;
+          return (
+            <circle
+              key={w.id}
+              cx={x(Number(w.lng))}
+              cy={y(Number(w.lat))}
+              r={r}
+              fill={fill}
+              fillOpacity={0.55}
+              stroke={fill}
+              strokeWidth={1.5}
+            >
+              <title>{`${w.name} — ★ ${Number(w.rating).toFixed(1)} · ${n} booking`}</title>
+            </circle>
+          );
+        })}
+      </svg>
+      <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted">
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full bg-red-600/70" /> AHASS
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: `${colors.primary}b3` }} />{" "}
+          Independen
+        </span>
+        <span className="text-muted-soft">{points.length} bengkel dengan koordinat</span>
+      </div>
+    </Card>
+  );
+}
 
 export default function WorkshopsPage() {
   const supabase = getSupabase();
@@ -14,7 +105,7 @@ export default function WorkshopsPage() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<"rating" | "bookings">("rating");
 
-  useEffect(() => {
+  const load = useCallback(() => {
     if (!supabase) return;
     supabase
       .from("workshops")
@@ -23,6 +114,23 @@ export default function WorkshopsPage() {
         if (data) setRows(data as WorkshopRow[]);
       });
   }, [supabase]);
+
+  useEffect(() => {
+    if (!supabase) return;
+    load();
+    // bookings is realtime-published → counts bump live. The 12s poll also
+    // surfaces a workshop just signed up in the partner app (workshops table
+    // itself isn't in the realtime publication).
+    const channel = supabase
+      .channel("console-workshops")
+      .on("postgres_changes", { event: "*", schema: "public", table: "bookings" }, () => load())
+      .subscribe();
+    const poll = setInterval(load, 12000);
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(poll);
+    };
+  }, [supabase, load]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -64,6 +172,8 @@ export default function WorkshopsPage() {
           {filtered.length} bengkel
         </span>
       </div>
+
+      <WorkshopMap rows={rows} />
 
       <Card className="overflow-hidden p-0">
         <div className="overflow-x-auto">

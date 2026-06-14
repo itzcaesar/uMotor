@@ -147,6 +147,60 @@ export interface AppNotification {
   created_at: string;
 }
 
+// ── Ride tracking (mirrors supabase/migrations/0003_rides.sql) ──────────────
+export interface LatLng {
+  lat: number;
+  lng: number;
+}
+
+export type RideSource = 'gps' | 'simulated';
+export type RideStatus = 'active' | 'completed' | 'discarded';
+/** Output of the motion classifier (speed + cadence + vibration + lean). */
+export type RideActivity = 'motorcycle' | 'walking' | 'running' | 'vehicle' | 'unknown';
+export type RideEventType = 'harsh_brake' | 'harsh_accel' | 'sharp_lean' | 'overspeed' | 'idle';
+
+export interface Ride {
+  id: string;
+  user_id: string;
+  motorcycle_id: string;
+  source: RideSource;
+  status: RideStatus;
+  started_at: string;
+  ended_at: string | null;
+  distance_m: number; // server-validated, never client-claimed
+  duration_s: number;
+  avg_kmh: number;
+  max_kmh: number;
+  eco_score: number | null;
+  harsh_events: number;
+  flagged: boolean;
+  flag_reason: string | null;
+  created_at: string;
+}
+
+export interface RidePoint {
+  id: number;
+  ride_id: string;
+  ts: string;
+  lat: number;
+  lng: number;
+  accuracy_m: number | null;
+  speed_mps: number | null;
+  altitude_m: number | null;
+  mocked: boolean;
+  activity: RideActivity | null;
+}
+
+export interface RideEvent {
+  id: string;
+  ride_id: string;
+  ts: string;
+  type: RideEventType;
+  value: number | null;
+  lat: number | null;
+  lng: number | null;
+}
+
 // Console view rows
 export interface KpiOverview {
   active_users: number;

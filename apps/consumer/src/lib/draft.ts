@@ -11,10 +11,13 @@ interface DraftState {
   workshop: Workshop | null;
   service: Service | null;
   slot: Slot | null;
+  isHomeService: boolean;
+  homeAddress: string | null;
   parts: Sparepart[];
   setBike: (motorcycleId: string, preferredServiceCode?: string | null) => void;
   setWorkshop: (workshop: Workshop) => void;
   setServiceSlot: (service: Service, slot: Slot) => void;
+  setHomeService: (service: Service, address: string) => void;
   togglePart: (part: Sparepart) => void;
   reset: () => void;
 }
@@ -25,6 +28,8 @@ const initial = {
   workshop: null,
   service: null,
   slot: null,
+  isHomeService: false,
+  homeAddress: null,
   parts: [],
 };
 
@@ -33,7 +38,9 @@ export const useDraft = create<DraftState>((set) => ({
   setBike: (motorcycleId, preferredServiceCode = null) =>
     set({ ...initial, motorcycleId, preferredServiceCode }),
   setWorkshop: (workshop) => set({ workshop }),
-  setServiceSlot: (service, slot) => set({ service, slot }),
+  setServiceSlot: (service, slot) => set({ service, slot, isHomeService: false, homeAddress: null }),
+  setHomeService: (service, address) =>
+    set({ service, slot: null, isHomeService: true, homeAddress: address }),
   togglePart: (part) =>
     set((s) => ({
       parts: s.parts.some((p) => p.id === part.id)

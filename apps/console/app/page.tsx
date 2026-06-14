@@ -6,6 +6,9 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  Legend as RechartsLegend,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -17,11 +20,25 @@ import {
   formatRp,
   type KpiOverview,
   type MotoScoreBucket,
+  type RevenueBreakdown,
 } from "@umotor/shared";
 import { getSupabase } from "@/lib/supabase";
 import { Card, ChartTooltip, KpiCard, SectionHeader, SetupNotice } from "@/components/ui";
 
 const nf = new Intl.NumberFormat("id-ID");
+
+const REVENUE_LABELS: Record<string, string> = {
+  deposit: "Deposit booking",
+  final: "Pelunasan servis",
+  sparepart: "Sparepart",
+  bill: "Tagihan (STNK/BBM)",
+};
+const REVENUE_COLORS: Record<string, string> = {
+  deposit: colors.primary,
+  final: colors.accent,
+  sparepart: colors.warning,
+  bill: "#7048e8",
+};
 
 // Credit-tier colors so the MotoScore story reads at a glance on the projector.
 function scoreColor(min: number) {
@@ -36,20 +53,23 @@ export default function OverviewPage() {
   const [kpi, setKpi] = useState<KpiOverview | null>(null);
   const [buckets, setBuckets] = useState<MotoScoreBucket[]>([]);
   const [daily, setDaily] = useState<{ day: string; n: number }[]>([]);
+  const [revenue, setRevenue] = useState<RevenueBreakdown[]>([]);
   const [pulse, setPulse] = useState(false);
 
   const load = useCallback(async () => {
     if (!supabase) return;
-    const [kpiRes, distRes, bookRes] = await Promise.all([
+    const [kpiRes, distRes, bookRes, revRes] = await Promise.all([
       supabase.from("v_kpi_overview").select("*").single(),
       supabase.from("v_motoscore_distribution").select("*"),
       supabase
         .from("bookings")
         .select("created_at")
         .gte("created_at", new Date(Date.now() - 30 * 86400_000).toISOString()),
+      supabase.from("v_revenue_breakdown").select("*"),
     ]);
     if (kpiRes.data) setKpi(kpiRes.data as KpiOverview);
     if (distRes.data) setBuckets(distRes.data as MotoScoreBucket[]);
+    if (revRes.data) setRevenue(revRes.data as RevenueBreakdown[]);
     if (bookRes.data) {
       const byDay = new Map<string, number>();
       for (const b of bookRes.data as { created_at: string }[]) {
@@ -83,6 +103,17 @@ export default function OverviewPage() {
     () => buckets.map((b) => ({ label: String(b.bucket_min), n: b.n, min: b.bucket_min })),
     [buckets],
   );
+
+  const revenueData = useMemo(
+    () =>
+      revenue.map((r) => ({
+        name: REVENUE_LABELS[r.type] ?? r.type,
+        value: r.total,
+        type: r.type,
+      })),
+    [revenue],
+  );
+  const revenueTotal = useMemo(() => revenue.reduce((s, r) => s + r.total, 0), [revenue]);
 
   if (!supabase) return <SetupNotice />;
 
@@ -168,6 +199,37 @@ export default function OverviewPage() {
             <Legend color={colors.primary} label="Good (670–739)" />
             <Legend color={colors.accent} label="Excellent (740+)" />
           </div>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <Card>
+          <SectionHeader
+            title="Pendapatan per sumber"
+            subtitle={`Total ${formatRp(revenueTotal)} — semua revenue stream`}
+          />
+          <ResponsiveContainer width="100%" height={280}>
+            <PieChart>
+              <Pie
+                data={revenueData}
+                dataKey="value"
+                nameKey="name"
+                innerRadius={64}
+                outerRadius={104}
+                paddingAngle={2}
+              >
+                {revenueData.map((d) => (
+                  <Cell key={d.type} fill={REVENUE_COLORS[d.type] ?? colors.primary} />
+                ))}
+              </Pie>
+              <Tooltip formatter={(value) => formatRp(Number(value))} />
+              <RechartsLegend
+                verticalAlign="bottom"
+                iconType="circle"
+                formatter={(value) => <span className="text-sm text-muted">{value}</span>}
+              />
+            </PieChart>
+          </ResponsiveContainer>
         </Card>
       </div>
 
