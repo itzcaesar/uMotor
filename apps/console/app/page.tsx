@@ -14,7 +14,18 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Users, CalendarClock, Wallet, Store } from "lucide-react";
+import Link from "next/link";
+import {
+  Users,
+  CalendarClock,
+  Wallet,
+  Store,
+  Sparkles,
+  Lightbulb,
+  LayoutDashboard,
+  Smartphone,
+  Wrench,
+} from "lucide-react";
 import {
   colors,
   formatRp,
@@ -23,7 +34,22 @@ import {
   type RevenueBreakdown,
 } from "@umotor/shared";
 import { getSupabase } from "@/lib/supabase";
-import { Card, ChartTooltip, KpiCard, SectionHeader, SetupNotice } from "@/components/ui";
+import {
+  APP_META,
+  type AppSource,
+  Card,
+  ChartTooltip,
+  KpiCard,
+  PageHeader,
+  SectionHeader,
+  SetupNotice,
+} from "@/components/ui";
+import type { ReactNode } from "react";
+
+type CrossApp = {
+  consumer: { riders: number; rideKm: number; billsUnpaid: number; billsAmount: number; avgScore: number };
+  partner: { workshops: number; ahass: number; utilizationPct: number; spareparts: number; net: number };
+};
 
 const nf = new Intl.NumberFormat("id-ID");
 
@@ -54,6 +80,7 @@ export default function OverviewPage() {
   const [buckets, setBuckets] = useState<MotoScoreBucket[]>([]);
   const [daily, setDaily] = useState<{ day: string; n: number }[]>([]);
   const [revenue, setRevenue] = useState<RevenueBreakdown[]>([]);
+  const [cross, setCross] = useState<CrossApp | null>(null);
   const [pulse, setPulse] = useState(false);
 
   const load = useCallback(async () => {
@@ -80,6 +107,47 @@ export default function OverviewPage() {
         [...byDay.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([day, n]) => ({ day, n })),
       );
     }
+
+    // Cross-app footprint — consumer (rides, bills, score) + partner (slots, sparepart, net).
+    const [rideRes, billRes, slotRes, partRes, wsRes] = await Promise.all([
+      supabase.from("rides").select("distance_m, status"),
+      supabase.from("bills").select("paid, amount"),
+      supabase.from("slots").select("capacity, booked_count"),
+      supabase.from("spareparts").select("*", { count: "exact", head: true }),
+      supabase.from("workshops").select("type"),
+    ]);
+    const rideKm = Math.round(
+      ((rideRes.data as { distance_m: number; status: string }[]) ?? [])
+        .filter((r) => r.status === "completed")
+        .reduce((s, r) => s + r.distance_m, 0) / 1000,
+    );
+    const billRows = (billRes.data as { paid: boolean; amount: number }[]) ?? [];
+    const unpaid = billRows.filter((b) => !b.paid);
+    const slotRows = (slotRes.data as { capacity: number; booked_count: number }[]) ?? [];
+    const cap = slotRows.reduce((s, r) => s + r.capacity, 0);
+    const booked = slotRows.reduce((s, r) => s + r.booked_count, 0);
+    const wsRows = (wsRes.data as { type: string }[]) ?? [];
+    const kpiData = kpiRes.data as KpiOverview | null;
+    const distData = (distRes.data as MotoScoreBucket[]) ?? [];
+    const scoreTotal = distData.reduce((s, b) => s + b.n, 0);
+    const scoreWeighted = distData.reduce((s, b) => s + (b.bucket_min + 25) * b.n, 0);
+    const finalTotal = ((revRes.data as RevenueBreakdown[]) ?? []).find((r) => r.type === "final")?.total ?? 0;
+    setCross({
+      consumer: {
+        riders: kpiData?.active_users ?? scoreTotal,
+        rideKm,
+        billsUnpaid: unpaid.length,
+        billsAmount: unpaid.reduce((s, b) => s + b.amount, 0),
+        avgScore: scoreTotal ? Math.round(scoreWeighted / scoreTotal) : 0,
+      },
+      partner: {
+        workshops: kpiData?.partner_workshops ?? wsRows.length,
+        ahass: wsRows.filter((w) => w.type === "ahass").length,
+        utilizationPct: cap ? Math.round((booked / cap) * 100) : 0,
+        spareparts: partRes.count ?? 0,
+        net: Math.round(finalTotal * 0.95),
+      },
+    });
   }, [supabase]);
 
   useEffect(() => {
@@ -115,14 +183,91 @@ export default function OverviewPage() {
   );
   const revenueTotal = useMemo(() => revenue.reduce((s, r) => s + r.total, 0), [revenue]);
 
+  // Auto-generated insights — derived from the same live data the charts use,
+  // so they're honest (no model required). The Copilot answers deeper questions.
+  const insights = useMemo(() => {
+    const out: string[] = [];
+    if (daily.length) {
+      const busiest = [...daily].sort((a, b) => b.n - a.n)[0];
+      out.push(`Hari tersibuk (30 hari): tanggal ${busiest.day} dengan ${busiest.n} booking.`);
+    }
+    if (revenue.length && revenueTotal) {
+      const top = [...revenue].sort((a, b) => b.total - a.total)[0];
+      const pct = Math.round((top.total / revenueTotal) * 100);
+      out.push(`${REVENUE_LABELS[top.type] ?? top.type} menyumbang ${pct}% dari GMV (${formatRp(top.total)}).`);
+    }
+    if (buckets.length) {
+      const total = buckets.reduce((s, b) => s + b.n, 0);
+      const good = buckets.filter((b) => b.bucket_min >= 670).reduce((s, b) => s + b.n, 0);
+      if (total) out.push(`${Math.round((good / total) * 100)}% pengguna ber-MotoScore ≥670 — layak produk kredit & asuransi.`);
+    }
+    if (kpi) out.push(`${kpi.bookings_today} booking masuk hari ini di jaringan ${kpi.partner_workshops} bengkel mitra.`);
+    return out;
+  }, [daily, revenue, revenueTotal, buckets, kpi]);
+
   if (!supabase) return <SetupNotice />;
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Overview</h1>
-        <p className="mt-1 text-muted">Ringkasan kesehatan platform uMotor secara real-time.</p>
-      </div>
+      <PageHeader
+        icon={<LayoutDashboard size={22} />}
+        title="Overview"
+        subtitle="Ringkasan kesehatan platform uMotor secara real-time."
+      />
+
+      {cross && kpi && (
+        <Card className="bg-gradient-to-br from-card to-primary-soft/20">
+          <SectionHeader
+            title="Tiga aplikasi, satu platform"
+            subtitle="Satu backend Supabase — data live dari app Konsumen, app Mitra, dan Console ini."
+          />
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <AppColumn
+              source="consumer"
+              icon={<Smartphone size={18} />}
+              name="App Konsumen"
+              tagline="Rider · garasi · ride · finance"
+              metrics={[
+                { label: "Rider aktif", value: nf.format(cross.consumer.riders), highlight: true },
+                { label: "Jarak ride", value: `${nf.format(cross.consumer.rideKm)} km` },
+                {
+                  label: "Tagihan terbuka",
+                  value: `${cross.consumer.billsUnpaid} · ${formatRp(cross.consumer.billsAmount)}`,
+                },
+                { label: "MotoScore rata-rata", value: `${cross.consumer.avgScore}` },
+              ]}
+            />
+            <AppColumn
+              source="partner"
+              icon={<Wrench size={18} />}
+              name="App Mitra"
+              tagline="Bengkel · antrian · slot · sparepart"
+              metrics={[
+                {
+                  label: "Bengkel mitra",
+                  value: `${nf.format(cross.partner.workshops)} · ${cross.partner.ahass} AHASS`,
+                  highlight: true,
+                },
+                { label: "Utilisasi slot", value: `${cross.partner.utilizationPct}%` },
+                { label: "Listing sparepart", value: nf.format(cross.partner.spareparts) },
+                { label: "Est. pendapatan", value: formatRp(cross.partner.net) },
+              ]}
+            />
+            <AppColumn
+              source="system"
+              icon={<LayoutDashboard size={18} />}
+              name="Ops Console"
+              tagline="Pemantauan · analitik · AI"
+              metrics={[
+                { label: "GMV total", value: formatRp(kpi.gmv), highlight: true },
+                { label: "Booking hari ini", value: nf.format(kpi.bookings_today) },
+                { label: "Pengguna aktif", value: nf.format(kpi.active_users) },
+                { label: "Realtime", value: "Aktif" },
+              ]}
+            />
+          </div>
+        </Card>
+      )}
 
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
         <KpiCard
@@ -154,6 +299,31 @@ export default function OverviewPage() {
           accent="primary"
         />
       </div>
+
+      {insights.length > 0 && (
+        <Card className="bg-gradient-to-br from-primary-soft/40 to-transparent">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+              <Sparkles size={18} className="text-primary" />
+              Insight otomatis
+            </h2>
+            <Link
+              href="/copilot"
+              className="rounded-full bg-primary px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
+            >
+              Tanya uMotor AI →
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {insights.map((text, i) => (
+              <div key={i} className="flex items-start gap-2.5 rounded-xl border border-border bg-card/70 px-3.5 py-3">
+                <Lightbulb size={16} className="mt-0.5 shrink-0 text-warning" />
+                <p className="text-sm text-foreground">{text}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Card>
@@ -254,6 +424,48 @@ function Legend({ color, label }: { color: string; label: string }) {
       <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: color }} />
       {label}
     </span>
+  );
+}
+
+function AppColumn({
+  source,
+  icon,
+  name,
+  tagline,
+  metrics,
+}: {
+  source: AppSource;
+  icon: ReactNode;
+  name: string;
+  tagline: string;
+  metrics: { label: string; value: string; highlight?: boolean }[];
+}) {
+  const m = APP_META[source];
+  return (
+    <div className="rounded-2xl border border-border bg-card/80 p-4 transition-shadow hover:shadow-md">
+      <div className="flex items-center gap-2.5">
+        <span
+          className="flex h-9 w-9 items-center justify-center rounded-xl"
+          style={{ backgroundColor: `${m.color}14`, color: m.color }}
+        >
+          {icon}
+        </span>
+        <div>
+          <p className="font-semibold leading-none">{name}</p>
+          <p className="mt-1 text-xs text-muted-soft">{tagline}</p>
+        </div>
+      </div>
+      <dl className="mt-4 space-y-2.5">
+        {metrics.map((mt) => (
+          <div key={mt.label} className="flex items-center justify-between gap-2 text-sm">
+            <dt className="text-muted">{mt.label}</dt>
+            <dd className="font-semibold tabular-nums" style={mt.highlight ? { color: m.color } : undefined}>
+              {mt.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </div>
   );
 }
 

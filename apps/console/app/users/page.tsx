@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Users as UsersIcon } from "lucide-react";
 import { colors, formatRp } from "@umotor/shared";
 import { getSupabase } from "@/lib/supabase";
-import { Card, Pill, SetupNotice } from "@/components/ui";
+import { Card, PageHeader, Pill, SetupNotice } from "@/components/ui";
 
 type UserRow = {
   id: string;
@@ -68,10 +69,11 @@ export default function UsersPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Users</h1>
-        <p className="mt-1 text-muted">Pengguna aktif uMotor, jumlah motor, dan MotoScore.</p>
-      </div>
+      <PageHeader
+        icon={<UsersIcon size={22} />}
+        title="Users"
+        subtitle="Pengguna aktif uMotor, jumlah motor, dan MotoScore."
+      />
 
       <div className="flex flex-wrap items-center gap-3">
         <input

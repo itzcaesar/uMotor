@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { Sparkles } from "lucide-react";
 
 export function Topbar() {
   const [now, setNow] = useState<string>("");
@@ -28,8 +30,15 @@ export function Topbar() {
         <span className="text-muted-soft">/</span>
         <span>Console</span>
       </div>
-      <div className="flex items-center gap-4">
-        <span className="hidden text-sm text-muted sm:inline tabular-nums">{now}</span>
+      <div className="flex items-center gap-3">
+        <span className="hidden text-sm text-muted md:inline tabular-nums">{now}</span>
+        <Link
+          href="/copilot"
+          className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-primary to-[#1769d6] px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-transform hover:scale-105"
+        >
+          <Sparkles size={13} />
+          uMotor AI
+        </Link>
         <span className="flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent-soft px-2.5 py-1 text-xs font-semibold text-accent">
           <span className="live-dot inline-block h-2 w-2 rounded-full bg-accent" />
           DEMO

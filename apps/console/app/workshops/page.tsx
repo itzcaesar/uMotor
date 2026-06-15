@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Search, Star } from "lucide-react";
+import { Search, Star, Wrench } from "lucide-react";
 import { colors, type Workshop } from "@umotor/shared";
 import { getSupabase } from "@/lib/supabase";
-import { Card, Pill, SectionHeader, SetupNotice } from "@/components/ui";
+import { Card, PageHeader, Pill, SectionHeader, SetupNotice } from "@/components/ui";
 
 type WorkshopRow = Workshop & { bookings: { count: number }[] };
 
@@ -146,10 +146,11 @@ export default function WorkshopsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Workshops</h1>
-        <p className="mt-1 text-muted">Bengkel mitra AHASS &amp; independen di jaringan uMotor.</p>
-      </div>
+      <PageHeader
+        icon={<Wrench size={22} />}
+        title="Workshops"
+        subtitle="Bengkel mitra AHASS & independen di jaringan uMotor."
+      />
 
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative w-72">

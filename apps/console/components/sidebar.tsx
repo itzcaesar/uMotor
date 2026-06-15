@@ -2,13 +2,25 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, CalendarCheck, Wrench, Users } from "lucide-react";
+import {
+  LayoutDashboard,
+  CalendarCheck,
+  Wrench,
+  Users,
+  Radio,
+  BarChart3,
+  Bike,
+  Sparkles,
+} from "lucide-react";
 
 const NAV = [
   { href: "/", label: "Overview", icon: LayoutDashboard },
+  { href: "/live", label: "Live Ops", icon: Radio },
+  { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/bookings", label: "Bookings", icon: CalendarCheck },
   { href: "/workshops", label: "Workshops", icon: Wrench },
   { href: "/users", label: "Users", icon: Users },
+  { href: "/rides", label: "Ride Intel", icon: Bike },
 ];
 
 export function Sidebar() {
@@ -51,6 +63,28 @@ export function Sidebar() {
             </Link>
           );
         })}
+
+        <p className="px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wider text-muted-soft">
+          AI
+        </p>
+        <Link
+          href="/copilot"
+          className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-base font-medium transition-colors ${
+            pathname === "/copilot"
+              ? "bg-gradient-to-r from-primary to-[#1769d6] text-white shadow-sm"
+              : "border border-primary/20 bg-primary-soft/40 text-primary hover:bg-primary-soft"
+          }`}
+        >
+          <Sparkles size={19} className={pathname === "/copilot" ? "text-white" : "text-primary"} />
+          uMotor AI
+          <span
+            className={`ml-auto rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase ${
+              pathname === "/copilot" ? "bg-white/20 text-white" : "bg-primary/10 text-primary"
+            }`}
+          >
+            Copilot
+          </span>
+        </Link>
       </nav>
 
       <div className="mt-auto px-4 py-4">

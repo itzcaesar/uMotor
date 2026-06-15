@@ -21,6 +21,54 @@ export function Card({
   );
 }
 
+/** Consistent page hero: gradient icon chip + title + subtitle + optional action. */
+export function PageHeader({
+  icon,
+  title,
+  subtitle,
+  action,
+}: {
+  icon?: ReactNode;
+  title: string;
+  subtitle?: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="flex items-center gap-3.5">
+        {icon && (
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-[#1769d6] text-white shadow-lg shadow-primary/25">
+            {icon}
+          </span>
+        )}
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
+          {subtitle && <p className="mt-1 text-muted">{subtitle}</p>}
+        </div>
+      </div>
+      {action}
+    </div>
+  );
+}
+
+export type AppSource = "consumer" | "partner" | "system";
+export const APP_META: Record<AppSource, { label: string; color: string; cls: string }> = {
+  consumer: { label: "Konsumen", color: "#0E4DA4", cls: "bg-primary-soft text-primary" },
+  partner: { label: "Mitra", color: "#00A86B", cls: "bg-accent-soft text-accent" },
+  system: { label: "Sistem", color: "#7048e8", cls: "bg-[#efeaff] text-[#7048e8]" },
+};
+
+/** Small chip marking which connected app an event/metric originates from. */
+export function AppBadge({ app }: { app: AppSource }) {
+  const m = APP_META[app];
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${m.cls}`}>
+      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: m.color }} />
+      {m.label}
+    </span>
+  );
+}
+
 export function SectionHeader({
   title,
   subtitle,

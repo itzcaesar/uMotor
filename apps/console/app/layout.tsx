@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Sidebar } from "@/components/sidebar";
 import { Topbar } from "@/components/topbar";
+import { CopilotWidget } from "@/components/copilot";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -34,6 +35,7 @@ export default function RootLayout({
             <div className="animate-fade-up mx-auto w-full max-w-7xl">{children}</div>
           </main>
         </div>
+        <CopilotWidget />
       </body>
     </html>
   );

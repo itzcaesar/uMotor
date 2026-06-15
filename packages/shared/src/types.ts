@@ -230,3 +230,23 @@ export interface BookingRecent {
   workshop: string;
   service: string;
 }
+
+// Ride row joined with owner + bike, as the console ride monitor / copilot read it.
+// `users`/`motorcycles` are Supabase nested-select shapes (single related row).
+export interface RideJoined extends Ride {
+  users: { name: string } | null;
+  motorcycles: { plate: string; model: string } | null;
+}
+
+/** A normalized event for the Console live-ops feed — one shape across sources. */
+export type ActivityKind = 'booking' | 'ride' | 'score' | 'payment' | 'notification';
+export interface ActivityEvent {
+  id: string;
+  kind: ActivityKind;
+  at: string; // ISO timestamp
+  title: string;
+  detail: string;
+  amount?: number | null; // rupiah, when monetary
+  tone?: 'primary' | 'accent' | 'warning' | 'danger';
+  app?: 'consumer' | 'partner' | 'system'; // which connected app originated it
+}

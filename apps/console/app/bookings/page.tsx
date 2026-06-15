@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { CalendarCheck } from "lucide-react";
 import { formatRp, type BookingRecent, type BookingStatus } from "@umotor/shared";
 import { getSupabase } from "@/lib/supabase";
-import { Card, Pill, SetupNotice, StatusBadge } from "@/components/ui";
+import { Card, PageHeader, Pill, SetupNotice, StatusBadge } from "@/components/ui";
 
 const FILTERS: (BookingStatus | "all")[] = [
   "all",
@@ -55,15 +56,16 @@ export default function BookingsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Bookings</h1>
-          <p className="mt-1 text-muted">Daftar booking terbaru — diperbarui real-time.</p>
-        </div>
-        <span className="rounded-full border border-border bg-card px-3 py-1 text-sm font-medium text-muted">
-          {rows.length} booking
-        </span>
-      </div>
+      <PageHeader
+        icon={<CalendarCheck size={22} />}
+        title="Bookings"
+        subtitle="Daftar booking terbaru — diperbarui real-time."
+        action={
+          <span className="rounded-full border border-border bg-card px-3 py-1 text-sm font-medium text-muted">
+            {rows.length} booking
+          </span>
+        }
+      />
 
       <div className="flex flex-wrap gap-2">
         {FILTERS.map((f) => (
