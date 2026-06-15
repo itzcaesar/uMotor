@@ -122,36 +122,38 @@ export function CopilotChat({ compact = false }: { compact?: boolean }) {
   return (
     <div
       className={`flex min-h-0 flex-col ${
-        compact ? "h-[min(26rem,calc(100dvh-7rem))]" : "h-[calc(100vh-13rem)] min-h-[24rem]"
+        compact ? "h-[min(10rem,calc(100dvh-7rem))]" : "h-[calc(100vh-20rem)]"
       }`}
     >
-      <div ref={scrollRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-1 py-2">
-        {messages.map((m, i) => (
-          <div key={i} className={`flex gap-2.5 ${m.role === "user" ? "flex-row-reverse" : ""}`}>
-            <span
-              className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${
-                m.role === "user" ? "bg-primary text-white" : "bg-accent-soft text-accent"
-              }`}
-            >
-              {m.role === "user" ? <User size={15} /> : <Bot size={15} />}
-            </span>
-            <div
-              className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
-                m.role === "user"
-                  ? "bg-primary text-white"
-                  : "border border-border bg-background text-foreground"
-              }`}
-            >
-              {m.content ? (
-                <div className="space-y-0.5">{renderRich(m.content)}</div>
-              ) : (
-                <span className="inline-flex gap-1">
-                  <Dot /> <Dot delay="0.15s" /> <Dot delay="0.3s" />
-                </span>
-              )}
+      <div ref={scrollRef} className="flex min-h-0 flex-1 flex-col justify-end overflow-y-auto px-1 py-2">
+        <div className="space-y-4">
+          {messages.map((m, i) => (
+            <div key={i} className={`flex gap-2.5 ${m.role === "user" ? "flex-row-reverse" : ""}`}>
+              <span
+                className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${
+                  m.role === "user" ? "bg-primary text-white" : "bg-accent-soft text-accent"
+                }`}
+              >
+                {m.role === "user" ? <User size={15} /> : <Bot size={15} />}
+              </span>
+              <div
+                className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
+                  m.role === "user"
+                    ? "bg-primary text-white"
+                    : "border border-border bg-background text-foreground"
+                }`}
+              >
+                {m.content ? (
+                  <div className="space-y-0.5">{renderRich(m.content)}</div>
+                ) : (
+                  <span className="inline-flex gap-1">
+                    <Dot /> <Dot delay="0.15s" /> <Dot delay="0.3s" />
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
       {messages.length <= 1 && (

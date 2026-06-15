@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Search, Star, Wrench } from "lucide-react";
 import { colors, type Workshop } from "@umotor/shared";
 import { getSupabase } from "@/lib/supabase";
-import { Card, PageHeader, Pill, SectionHeader, SetupNotice } from "@/components/ui";
+import { Card, ErrorState, Loading, PageHeader, Pill, SectionHeader, SetupNotice } from "@/components/ui";
 import { WorkshopMap as LeafletWorkshopMap } from "@/components/workshop-map";
 
 type WorkshopRow = Workshop & { bookings: { count: number }[] };
@@ -41,15 +41,18 @@ export default function WorkshopsPage() {
   const [rows, setRows] = useState<WorkshopRow[]>([]);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<"rating" | "bookings">("rating");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(() => {
+  const load = useCallback(async () => {
     if (!supabase) return;
-    supabase
-      .from("workshops")
-      .select("*, bookings(count)")
-      .then(({ data }) => {
-        if (data) setRows(data as WorkshopRow[]);
-      });
+    const { data, error } = await supabase.from("workshops").select("*, bookings(count)");
+    if (error) setError(error.message);
+    else {
+      setRows(data as WorkshopRow[]);
+      setError(null);
+    }
+    setLoading(false);
   }, [supabase]);
 
   useEffect(() => {
@@ -93,9 +96,11 @@ export default function WorkshopsPage() {
         <div className="relative w-72">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-soft" />
           <input
+            type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Cari bengkel…"
+            aria-label="Cari bengkel"
             className="w-full rounded-xl border border-border bg-card py-2 pl-9 pr-4 text-base outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20"
           />
         </div>
@@ -113,6 +118,11 @@ export default function WorkshopsPage() {
 
       <WorkshopMap rows={rows} />
 
+      {error ? (
+        <ErrorState message={error} onRetry={load} />
+      ) : loading ? (
+        <Loading label="Memuat bengkel…" />
+      ) : (
       <Card className="overflow-hidden p-0">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-base">
@@ -182,6 +192,7 @@ export default function WorkshopsPage() {
           </table>
         </div>
       </Card>
+      )}
     </div>
   );
 }

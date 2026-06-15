@@ -11,7 +11,7 @@ import {
   type BookingStatus,
 } from "@umotor/shared";
 import { getSupabase } from "@/lib/supabase";
-import { AppBadge, Card, PageHeader, SetupNotice } from "@/components/ui";
+import { AppBadge, Card, ErrorState, Loading, PageHeader, SetupNotice } from "@/components/ui";
 
 const TONE_COLOR: Record<NonNullable<ActivityEvent["tone"]>, string> = {
   primary: colors.primary,
@@ -59,6 +59,8 @@ export default function LivePage() {
   const supabase = getSupabase();
   const [events, setEvents] = useState<ActivityEvent[]>([]);
   const [freshIds, setFreshIds] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const seenRef = useRef<Set<string>>(new Set());
   const firstLoad = useRef(true);
 
@@ -71,6 +73,14 @@ export default function LivePage() {
       supabase.from("motoscore_history").select("id, delta, reason, created_at, users(name)").order("created_at", { ascending: false }).limit(15),
       supabase.from("notifications").select("id, type, title, body, created_at, users(name)").order("created_at", { ascending: false }).limit(15),
     ]);
+
+    const firstErr = bRes.error ?? rRes.error ?? pRes.error ?? sRes.error ?? nRes.error;
+    if (firstErr) {
+      setError(firstErr.message);
+      setLoading(false);
+      return;
+    }
+    setError(null);
 
     const merged: ActivityEvent[] = [];
 
@@ -161,6 +171,7 @@ export default function LivePage() {
     firstLoad.current = false;
     seenRef.current = new Set(top.map((e) => e.id));
     setEvents(top);
+    setLoading(false);
   }, [supabase]);
 
   useEffect(() => {
@@ -197,6 +208,11 @@ export default function LivePage() {
         }
       />
 
+      {error ? (
+        <ErrorState message={error} onRetry={load} />
+      ) : loading ? (
+        <Loading label="Memuat aktivitas…" />
+      ) : (
       <Card>
         {events.length === 0 ? (
           <p className="py-16 text-center text-muted-soft">Menunggu aktivitas…</p>
@@ -252,6 +268,7 @@ export default function LivePage() {
           </ol>
         )}
       </Card>
+      )}
     </div>
   );
 }

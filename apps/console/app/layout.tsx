@@ -16,8 +16,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "uMotor Console",
-  description: "uMotor ops dashboard — platform metrics, bookings, workshops",
+  title: {
+    default: "uMotor Console",
+    template: "%s · uMotor Console",
+  },
+  description:
+    "uMotor ops dashboard — real-time platform metrics, bookings, workshops, ride intelligence, MotoScore distribution, and the uMotor AI copilot.",
+  icons: { icon: "/icon.svg" },
 };
 
 export default function RootLayout({

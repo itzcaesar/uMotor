@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { AlertTriangle } from "lucide-react";
 import { STATUS_LABELS, statusColor, type BookingStatus } from "@umotor/shared";
 
 export function Card({
@@ -212,6 +213,39 @@ export function ChartTooltip({
         </p>
       ))}
     </div>
+  );
+}
+
+/** First-load spinner card — keeps the page from looking empty while data fetches. */
+export function Loading({ label = "Memuat data…" }: { label?: string }) {
+  return (
+    <Card className="flex items-center justify-center gap-3 py-16 text-muted">
+      <span className="h-5 w-5 animate-spin rounded-full border-2 border-border border-t-primary" aria-hidden />
+      <span className="text-sm">{label}</span>
+    </Card>
+  );
+}
+
+/** Error card with retry — console's equivalent of the mobile ErrorState. */
+export function ErrorState({ message, onRetry }: { message?: string; onRetry?: () => void }) {
+  return (
+    <Card className="flex flex-col items-center gap-3 border-danger/30 bg-danger/5 py-12 text-center">
+      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-danger/10 text-danger">
+        <AlertTriangle size={22} />
+      </span>
+      <div>
+        <p className="font-semibold text-foreground">Gagal memuat data</p>
+        <p className="mt-1 text-sm text-muted">{message ?? "Periksa koneksi lalu coba lagi."}</p>
+      </div>
+      {onRetry && (
+        <button
+          onClick={onRetry}
+          className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2"
+        >
+          Muat ulang
+        </button>
+      )}
+    </Card>
   );
 }
 

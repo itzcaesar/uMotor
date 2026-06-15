@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Bike, Gauge, Leaf, ShieldCheck, ShieldAlert, Route } from "lucide-react";
 import { colors, type RideJoined } from "@umotor/shared";
 import { getSupabase } from "@/lib/supabase";
-import { Card, KpiCard, PageHeader, SectionHeader, SetupNotice } from "@/components/ui";
+import { Card, ErrorState, KpiCard, Loading, PageHeader, SectionHeader, SetupNotice } from "@/components/ui";
 
 const nf = new Intl.NumberFormat("id-ID");
 
@@ -23,15 +23,22 @@ function fmtDuration(s: number) {
 export default function RidesPage() {
   const supabase = getSupabase();
   const [rides, setRides] = useState<RideJoined[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!supabase) return;
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("rides")
       .select("*, users(name), motorcycles(plate, model)")
       .order("started_at", { ascending: false })
       .limit(100);
-    if (data) setRides(data as unknown as RideJoined[]);
+    if (error) setError(error.message);
+    else {
+      setRides(data as unknown as RideJoined[]);
+      setError(null);
+    }
+    setLoading(false);
   }, [supabase]);
 
   useEffect(() => {
@@ -97,6 +104,11 @@ export default function RidesPage() {
         </div>
       </Card>
 
+      {error ? (
+        <ErrorState message={error} onRetry={load} />
+      ) : loading ? (
+        <Loading label="Memuat ride…" />
+      ) : (
       <Card className="overflow-hidden p-0">
         <div className="p-5 pb-3">
           <SectionHeader title="Riwayat ride" subtitle={`${rides.length} ride terbaru — diperbarui real-time`} />
@@ -187,6 +199,7 @@ export default function RidesPage() {
           </table>
         </div>
       </Card>
+      )}
     </div>
   );
 }

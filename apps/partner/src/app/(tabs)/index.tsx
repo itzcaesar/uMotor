@@ -91,7 +91,12 @@ export default function Inbox() {
         autoCorrect={false}
       />
       {search.length > 0 && (
-        <Pressable onPress={() => setSearch('')} hitSlop={8}>
+        <Pressable
+          onPress={() => setSearch('')}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Hapus pencarian"
+        >
           <Ionicons name="close-circle" size={18} color="#cbd5e1" />
         </Pressable>
       )}

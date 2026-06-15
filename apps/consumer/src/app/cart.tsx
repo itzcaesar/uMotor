@@ -141,7 +141,12 @@ export default function CartScreen() {
   return (
     <View style={styles.screen}>
       <View style={styles.topbar}>
-        <Pressable onPress={() => safeBack('/(tabs)/marketplace')} hitSlop={8}>
+        <Pressable
+          onPress={() => safeBack('/(tabs)/marketplace')}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Tutup keranjang"
+        >
           <Ionicons name="close" size={26} color="#0b1727" />
         </Pressable>
         <Text style={styles.title}>Keranjang</Text>
@@ -175,7 +180,12 @@ export default function CartScreen() {
                       <Text style={styles.itemInstall}>+ pasang {formatRp(part.install_fee)}</Text>
                     )}
                   </View>
-                  <Pressable onPress={() => remove(part.id)} hitSlop={8}>
+                  <Pressable
+                    onPress={() => remove(part.id)}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Hapus ${part.name} dari keranjang`}
+                  >
                     <Ionicons name="trash-outline" size={20} color={colors.danger} />
                   </Pressable>
                 </View>

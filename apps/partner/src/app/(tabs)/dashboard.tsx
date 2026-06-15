@@ -185,7 +185,13 @@ export default function Dashboard() {
             <View style={styles.liveDot} />
             <Text style={styles.liveText}>LIVE</Text>
           </View>
-          <Pressable style={styles.gearBtn} onPress={() => router.push('/profile')} hitSlop={8}>
+          <Pressable
+            style={styles.gearBtn}
+            onPress={() => router.push('/profile')}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Kelola bengkel"
+          >
             <Ionicons name="settings-outline" size={20} color="#667085" />
           </Pressable>
         </View>

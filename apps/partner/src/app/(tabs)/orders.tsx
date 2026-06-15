@@ -63,6 +63,8 @@ export default function Orders() {
   const catalog = useQuery({
     queryKey: ['catalog', workshopId],
     enabled: !!workshopId,
+    // Polling fallback in case the realtime channel drops mid-demo.
+    refetchInterval: 15_000,
     queryFn: async (): Promise<Sparepart[]> => {
       const { data, error } = await supabase
         .from('spareparts')
@@ -91,7 +93,12 @@ export default function Orders() {
     <View style={styles.header}>
       <View style={styles.sectionRow}>
         <Text style={styles.sectionTitle}>Sparepart yang saya jual</Text>
-        <Pressable style={styles.addBtn} onPress={() => router.push('/sparepart-new')}>
+        <Pressable
+          style={styles.addBtn}
+          onPress={() => router.push('/sparepart-new')}
+          accessibilityRole="button"
+          accessibilityLabel="Tambah sparepart"
+        >
           <Ionicons name="add" size={16} color="#fff" />
           <Text style={styles.addBtnText}>Tambah</Text>
         </Pressable>
@@ -138,7 +145,12 @@ export default function Orders() {
             autoCorrect={false}
           />
           {search.length > 0 && (
-            <Pressable onPress={() => setSearch('')} hitSlop={8}>
+            <Pressable
+              onPress={() => setSearch('')}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Hapus pencarian"
+            >
               <Ionicons name="close-circle" size={18} color="#cbd5e1" />
             </Pressable>
           )}
@@ -181,7 +193,7 @@ export default function Orders() {
             </Text>
             <View style={styles.parts}>
               {item.booking_parts.map((p, i) => (
-                <View key={i} style={styles.partRow}>
+                <View key={`${p.spareparts?.name ?? i}`} style={styles.partRow}>
                   <Ionicons name="construct-outline" size={14} color={colors.primary} />
                   <Text style={styles.partName}>
                     {p.spareparts?.name ?? 'Sparepart'}

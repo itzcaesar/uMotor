@@ -51,6 +51,8 @@ export default function FinanceHub() {
   const data = useQuery({
     queryKey: ['finance', userId],
     enabled: !!userId,
+    // Polling fallback in case the realtime channel drops mid-demo.
+    refetchInterval: 25_000,
     queryFn: async () => {
       const [bills, bikes, spend, user] = await Promise.all([
         supabase.from('bills').select('*').eq('user_id', userId!).order('paid').order('due_date'),

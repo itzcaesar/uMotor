@@ -126,7 +126,13 @@ export function NotificationsHeaderButton() {
   });
   const count = unread.data ?? 0;
   return (
-    <Pressable style={styles.cartBtn} onPress={() => router.push('/notifications')} hitSlop={8}>
+    <Pressable
+      style={styles.cartBtn}
+      onPress={() => router.push('/notifications')}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel={count > 0 ? `Notifikasi, ${count} belum dibaca` : 'Notifikasi'}
+    >
       <Ionicons name="notifications-outline" size={24} color={colors.primary} />
       {count > 0 && (
         <View style={styles.cartBadge}>

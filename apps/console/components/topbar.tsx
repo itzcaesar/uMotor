@@ -34,7 +34,8 @@ export function Topbar() {
         <span className="hidden text-sm text-muted md:inline tabular-nums">{now}</span>
         <Link
           href="/copilot"
-          className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-primary to-[#1769d6] px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-transform hover:scale-105"
+          aria-label="Buka uMotor AI Copilot"
+          className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-primary to-[#1769d6] px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2"
         >
           <Sparkles size={13} />
           uMotor AI

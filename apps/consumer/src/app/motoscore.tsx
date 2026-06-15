@@ -103,6 +103,8 @@ export default function MotoScoreScreen() {
   const data = useQuery({
     queryKey: ['motoscore', userId],
     enabled: !!userId,
+    // Polling fallback in case the realtime channel drops mid-demo.
+    refetchInterval: 30_000,
     queryFn: async () => {
       const [score, history] = await Promise.all([
         supabase.from('motoscore').select('*').eq('user_id', userId!).single(),

@@ -54,6 +54,8 @@ export default function Marketplace() {
   const market = useQuery({
     queryKey: ['marketplace', userId],
     enabled: !!userId,
+    // Polling fallback in case the realtime channel drops mid-demo.
+    refetchInterval: 20_000,
     queryFn: async (): Promise<MarketData> => {
       const [partsRes, bikesRes] = await Promise.all([
         supabase.from('spareparts').select('*, workshops(name)').order('category'),
@@ -201,14 +203,24 @@ export default function Marketplace() {
             <Text style={styles.price}>{formatRp(item.price)}</Text>
             <Text style={styles.installNote}>+ {formatRp(item.install_fee)} jika pasang di bengkel</Text>
           </View>
-          <Pressable style={styles.addBtn} onPress={() => add(item)} hitSlop={6}>
+          <Pressable
+            style={styles.addBtn}
+            onPress={() => add(item)}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel={`Tambah ${item.name} ke keranjang`}
+          >
             <Ionicons name="add" size={20} color="#fff" />
           </Pressable>
         </Card>
       )}
       ListEmptyComponent={
         <Text style={styles.empty}>
-          {market.isLoading ? 'Memuat sparepart…' : 'Tidak ada sparepart untuk filter ini.'}
+          {market.isLoading
+            ? 'Memuat sparepart…'
+            : market.isError
+              ? 'Gagal memuat marketplace. Tarik untuk muat ulang.'
+              : 'Tidak ada sparepart untuk filter ini.'}
         </Text>
       }
     />

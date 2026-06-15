@@ -84,6 +84,8 @@ export default function Queue() {
             key={c.key}
             style={[styles.chip, filter === c.key && styles.chipActive]}
             onPress={() => setFilter(c.key)}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: filter === c.key }}
           >
             <Text style={[styles.chipText, filter === c.key && styles.chipTextActive]}>
               {c.label}

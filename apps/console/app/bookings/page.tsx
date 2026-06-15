@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { CalendarCheck } from "lucide-react";
 import { formatRp, type BookingRecent, type BookingStatus } from "@umotor/shared";
 import { getSupabase } from "@/lib/supabase";
-import { Card, PageHeader, Pill, SetupNotice, StatusBadge } from "@/components/ui";
+import { Card, ErrorState, Loading, PageHeader, Pill, SetupNotice, StatusBadge } from "@/components/ui";
 
 const FILTERS: (BookingStatus | "all")[] = [
   "all",
@@ -21,13 +21,20 @@ export default function BookingsPage() {
   const [rows, setRows] = useState<BookingRecent[]>([]);
   const [filter, setFilter] = useState<BookingStatus | "all">("all");
   const [freshId, setFreshId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!supabase) return;
     let q = supabase.from("v_bookings_recent").select("*").limit(100);
     if (filter !== "all") q = q.eq("status", filter);
-    const { data } = await q;
-    if (data) setRows(data as BookingRecent[]);
+    const { data, error } = await q;
+    if (error) setError(error.message);
+    else {
+      setRows(data as BookingRecent[]);
+      setError(null);
+    }
+    setLoading(false);
   }, [supabase, filter]);
 
   useEffect(() => {
@@ -75,6 +82,11 @@ export default function BookingsPage() {
         ))}
       </div>
 
+      {error ? (
+        <ErrorState message={error} onRetry={load} />
+      ) : loading ? (
+        <Loading label="Memuat booking…" />
+      ) : (
       <Card className="overflow-hidden p-0">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-base">
@@ -132,6 +144,7 @@ export default function BookingsPage() {
           </table>
         </div>
       </Card>
+      )}
     </div>
   );
 }

@@ -77,7 +77,12 @@ export default function Garage() {
       }
       ListHeaderComponent={
         <View style={styles.headerStack}>
-          <Pressable style={styles.rideCta} onPress={() => router.push('/ride')}>
+          <Pressable
+            style={styles.rideCta}
+            onPress={() => router.push('/ride')}
+            accessibilityRole="button"
+            accessibilityLabel="Mulai ride tracking"
+          >
             <View style={styles.rideIcon}>
               <Ionicons name="navigate" size={20} color="#fff" />
             </View>
@@ -116,7 +121,12 @@ export default function Garage() {
         </View>
       }
       ListFooterComponent={
-        <Pressable style={styles.addBike} onPress={() => router.push('/add-bike')}>
+        <Pressable
+          style={styles.addBike}
+          onPress={() => router.push('/add-bike')}
+          accessibilityRole="button"
+          accessibilityLabel="Tambah motor lewat cek Samsat"
+        >
           <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
           <Text style={styles.addBikeText}>Tambah motor (cek Samsat)</Text>
         </Pressable>

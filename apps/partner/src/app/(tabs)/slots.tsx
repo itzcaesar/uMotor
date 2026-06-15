@@ -153,6 +153,8 @@ export default function SlotsConfig() {
                   style={styles.openBtn}
                   disabled={busy}
                   onPress={() => openSlot.mutate(hour)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Buka slot ${time}`}
                 >
                   <Ionicons name="add" size={16} color="#fff" />
                   <Text style={styles.openText}>Buka</Text>
@@ -173,6 +175,8 @@ export default function SlotsConfig() {
                     style={[styles.stepBtn, !canReduce && styles.stepBtnDisabled]}
                     disabled={!canReduce || busy}
                     onPress={() => setCapacity.mutate({ id: slot.id, capacity: slot.capacity - 1 })}
+                    accessibilityRole="button"
+                    accessibilityLabel="Kurangi kapasitas"
                   >
                     <Ionicons name="remove" size={16} color={colors.primary} />
                   </Pressable>
@@ -181,6 +185,8 @@ export default function SlotsConfig() {
                     style={styles.stepBtn}
                     disabled={busy}
                     onPress={() => setCapacity.mutate({ id: slot.id, capacity: slot.capacity + 1 })}
+                    accessibilityRole="button"
+                    accessibilityLabel="Tambah kapasitas"
                   >
                     <Ionicons name="add" size={16} color={colors.primary} />
                   </Pressable>
@@ -196,6 +202,8 @@ export default function SlotsConfig() {
                   closeSlot.mutate(slot.id);
                 }}
                 hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Tutup slot"
               >
                 <Ionicons name="close-circle-outline" size={22} color={colors.danger} />
               </Pressable>

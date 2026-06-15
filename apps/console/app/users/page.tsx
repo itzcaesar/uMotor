@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Users as UsersIcon } from "lucide-react";
 import { colors, formatRp } from "@umotor/shared";
 import { getSupabase } from "@/lib/supabase";
-import { Card, PageHeader, Pill, SetupNotice } from "@/components/ui";
+import { Card, ErrorState, Loading, PageHeader, Pill, SetupNotice } from "@/components/ui";
 
 type UserRow = {
   id: string;
@@ -27,17 +27,22 @@ export default function UsersPage() {
   const [rows, setRows] = useState<UserRow[]>([]);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<"score" | "bikes">("score");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(() => {
+  const load = useCallback(async () => {
     if (!supabase) return;
-    supabase
+    const { data, error } = await supabase
       .from("users")
       .select("id, name, astrapay_balance, created_at, motorcycles(count), motoscore(score)")
       .order("created_at", { ascending: false })
-      .limit(200)
-      .then(({ data }) => {
-        if (data) setRows(data as unknown as UserRow[]);
-      });
+      .limit(200);
+    if (error) setError(error.message);
+    else {
+      setRows(data as unknown as UserRow[]);
+      setError(null);
+    }
+    setLoading(false);
   }, [supabase]);
 
   useEffect(() => {
@@ -77,10 +82,12 @@ export default function UsersPage() {
 
       <div className="flex flex-wrap items-center gap-3">
         <input
+          type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Cari pengguna…"
-          className="w-72 rounded-xl border border-border bg-card px-4 py-2 text-base outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20"
+          aria-label="Cari pengguna"
+          className="w-72 max-w-full rounded-xl border border-border bg-card px-4 py-2 text-base outline-none transition-shadow focus:border-primary focus:ring-2 focus:ring-primary/20"
         />
         <div className="flex gap-2">
           {(["score", "bikes"] as const).map((s) => (
@@ -94,6 +101,11 @@ export default function UsersPage() {
         </span>
       </div>
 
+      {error ? (
+        <ErrorState message={error} onRetry={load} />
+      ) : loading ? (
+        <Loading label="Memuat pengguna…" />
+      ) : (
       <Card className="overflow-hidden p-0">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-base">
@@ -148,6 +160,7 @@ export default function UsersPage() {
           </table>
         </div>
       </Card>
+      )}
     </div>
   );
 }

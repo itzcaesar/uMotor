@@ -24,7 +24,7 @@ export default function BookingDetail() {
 
   const copyToken = async (token: string) => {
     await Clipboard.setStringAsync(token);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    Haptics.selectionAsync();
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
@@ -153,7 +153,13 @@ export default function BookingDetail() {
         <Row label="Deposit" value={`${formatRp(b.deposit_amount)} · Lunas`} />
         <Row label="Total" value={b.total_amount != null ? formatRp(b.total_amount) : '—'} />
         <Row label="Sisa tagihan" value={formatRp(remaining)} />
-        <Pressable style={styles.tokenRow} onPress={() => copyToken(b.qr_token)} hitSlop={6}>
+        <Pressable
+          style={styles.tokenRow}
+          onPress={() => copyToken(b.qr_token)}
+          hitSlop={6}
+          accessibilityRole="button"
+          accessibilityLabel="Salin QR token"
+        >
           <Text style={styles.detailLabel}>QR token</Text>
           <View style={styles.tokenValue}>
             <Text style={styles.detailValue} numberOfLines={1}>
@@ -173,7 +179,7 @@ export default function BookingDetail() {
         <Card>
           <Text style={styles.partsTitle}>Sparepart dipesan</Text>
           {b.booking_parts.map((p, i) => (
-            <View key={i} style={styles.detailRow}>
+            <View key={`${p.spareparts?.name ?? i}`} style={styles.detailRow}>
               <Text style={styles.detailLabel}>
                 {p.spareparts?.name ?? 'Sparepart'}
                 {p.qty > 1 ? ` ×${p.qty}` : ''}

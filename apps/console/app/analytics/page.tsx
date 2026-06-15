@@ -23,7 +23,7 @@ import {
   type PaymentType,
 } from "@umotor/shared";
 import { getSupabase } from "@/lib/supabase";
-import { Card, ChartTooltip, KpiCard, PageHeader, SectionHeader, SetupNotice } from "@/components/ui";
+import { Card, ChartTooltip, ErrorState, KpiCard, Loading, PageHeader, SectionHeader, SetupNotice } from "@/components/ui";
 
 const nf = new Intl.NumberFormat("id-ID");
 
@@ -53,6 +53,8 @@ export default function AnalyticsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [workshops, setWorkshops] = useState<WorkshopRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!supabase) return;
@@ -62,10 +64,14 @@ export default function AnalyticsPage() {
       supabase.from("services").select("id, name"),
       supabase.from("workshops").select("name, type, rating, bookings(count)"),
     ]);
+    const firstErr = pRes.error ?? bRes.error ?? sRes.error ?? wRes.error;
+    if (firstErr) setError(firstErr.message);
+    else setError(null);
     if (pRes.data) setPayments(pRes.data as Payment[]);
     if (bRes.data) setBookings(bRes.data as Booking[]);
     if (sRes.data) setServices(sRes.data as Service[]);
     if (wRes.data) setWorkshops(wRes.data as WorkshopRow[]);
+    setLoading(false);
   }, [supabase]);
 
   useEffect(() => {
@@ -151,6 +157,12 @@ export default function AnalyticsPage() {
         subtitle="Pendapatan, funnel booking, dan performa bengkel — agregat real-time."
       />
 
+      {error ? (
+        <ErrorState message={error} onRetry={load} />
+      ) : loading ? (
+        <Loading label="Memuat analitik…" />
+      ) : (
+      <>
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
         <KpiCard label="GMV total" value={formatRp(gmv)} icon={<Wallet size={18} />} accent="warning" />
         <KpiCard
@@ -309,6 +321,8 @@ export default function AnalyticsPage() {
           </table>
         </div>
       </Card>
+      </>
+      )}
     </div>
   );
 }
