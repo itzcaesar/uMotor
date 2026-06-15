@@ -255,6 +255,12 @@ export default function AnalyticsPage() {
 
         <Card>
           <SectionHeader title="Layanan terpopuler" subtitle="Jumlah booking per jenis servis" />
+          {serviceMix.length === 0 ? (
+            <div className="flex h-[260px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-background/40 text-center">
+              <BarChart3 size={28} className="text-muted-soft opacity-50" />
+              <p className="text-sm text-muted-soft">Belum ada data layanan.</p>
+            </div>
+          ) : (
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={serviceMix} layout="vertical" margin={{ left: 24, right: 16, top: 4 }}>
               <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#eef1f6" />
@@ -276,6 +282,7 @@ export default function AnalyticsPage() {
               </Bar>
             </BarChart>
           </ResponsiveContainer>
+          )}
         </Card>
       </div>
 
