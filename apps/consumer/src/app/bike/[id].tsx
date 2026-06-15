@@ -1,6 +1,15 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -32,6 +41,10 @@ export default function BikeDetail() {
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [editingOdo, setEditingOdo] = useState(false);
+  const [odoInput, setOdoInput] = useState('');
+  const [savingOdo, setSavingOdo] = useState(false);
+  const [odoErr, setOdoErr] = useState<string | null>(null);
 
   // Remove a bike and everything tied to it. Only `components` cascades on the
   // motorcycles FK; bookings/bills/payments do not, so clear those first to
@@ -58,6 +71,55 @@ export default function BikeDetail() {
       setErrorMsg(e instanceof Error ? e.message : 'Gagal menghapus. Coba lagi.');
     } finally {
       setBusy(false);
+    }
+  };
+
+  const openOdometerEditor = (current: number) => {
+    setOdoInput(String(current));
+    setOdoErr(null);
+    setEditingOdo(true);
+  };
+
+  // Save an edited odometer. Going up routes through advance_odometer so the
+  // 80/95/100% maintenance reminders fire exactly as on a real ride; going down
+  // is a manual correction (no reminders), written straight to the row.
+  const saveOdometer = async () => {
+    if (!id || savingOdo || !detail.data) return;
+    const next = parseInt(odoInput.replace(/[^\d]/g, ''), 10);
+    if (!Number.isFinite(next) || next < 0) {
+      setOdoErr('Masukkan jarak tempuh (km) yang valid.');
+      return;
+    }
+    const current = detail.data.bike.odometer_km;
+    if (next === current) {
+      setEditingOdo(false);
+      return;
+    }
+    setSavingOdo(true);
+    setOdoErr(null);
+    try {
+      const delta = next - current;
+      if (delta > 0) {
+        const { error } = await supabase.rpc('advance_odometer', {
+          p_motorcycle_id: id,
+          p_km: delta,
+        });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('motorcycles')
+          .update({ odometer_km: next })
+          .eq('id', id);
+        if (error) throw error;
+      }
+      qc.invalidateQueries({ queryKey: ['bike', id] });
+      qc.invalidateQueries({ queryKey: ['garage'] });
+      qc.invalidateQueries({ queryKey: ['maintenance-banner'] });
+      setEditingOdo(false);
+    } catch (e) {
+      setOdoErr(e instanceof Error ? e.message : 'Gagal menyimpan. Coba lagi.');
+    } finally {
+      setSavingOdo(false);
     }
   };
 
@@ -104,10 +166,18 @@ export default function BikeDetail() {
             {d.bike.plate} · {d.bike.year}
           </Text>
           <View style={styles.odoRow}>
-            <View style={styles.odoBox}>
+            <Pressable
+              style={styles.odoBox}
+              onPress={() => openOdometerEditor(d.bike.odometer_km)}
+              accessibilityRole="button"
+              accessibilityLabel={`Ubah odometer, sekarang ${d.bike.odometer_km} km`}
+            >
+              <View style={styles.odoEdit}>
+                <Ionicons name="pencil" size={13} color={colors.primary} />
+              </View>
               <Text style={styles.odoValue}>{d.bike.odometer_km.toLocaleString('id-ID')}</Text>
-              <Text style={styles.odoLabel}>km odometer</Text>
-            </View>
+              <Text style={styles.odoLabel}>km odometer · ubah</Text>
+            </Pressable>
             <View style={styles.odoBox}>
               <Text style={[styles.odoValue, { color: worst ? healthColor(worst.pct_used) : colors.accent }]}>
                 ±{nextServiceKm?.toLocaleString('id-ID') ?? '—'}
@@ -174,6 +244,67 @@ export default function BikeDetail() {
       </View>
 
       <Modal
+        visible={editingOdo}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !savingOdo && setEditingOdo(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <View style={[styles.modalIcon, { backgroundColor: colors.primary + '14' }]}>
+              <Ionicons name="speedometer-outline" size={28} color={colors.primary} />
+            </View>
+            <Text style={styles.modalTitle}>Ubah odometer</Text>
+            <Text style={styles.modalBody}>
+              Masukkan jarak tempuh terbaru dari spidometer motormu. Menaikkan odometer akan
+              memperbarui kesehatan komponen dan bisa memunculkan pengingat servis.
+            </Text>
+            <View style={styles.odoInputRow}>
+              <TextInput
+                style={styles.odoInput}
+                value={odoInput}
+                onChangeText={(t) => setOdoInput(t.replace(/[^\d]/g, ''))}
+                keyboardType="number-pad"
+                inputMode="numeric"
+                maxLength={7}
+                placeholder="0"
+                placeholderTextColor="#cbd5e1"
+                autoFocus
+                accessibilityLabel="Jarak tempuh odometer dalam kilometer"
+                onSubmitEditing={saveOdometer}
+              />
+              <Text style={styles.odoInputUnit}>km</Text>
+            </View>
+            {odoErr && <Text style={styles.modalError}>{odoErr}</Text>}
+            <View style={styles.modalActions}>
+              <Pressable
+                style={styles.modalCancel}
+                onPress={() => setEditingOdo(false)}
+                disabled={savingOdo}
+                accessibilityRole="button"
+                accessibilityLabel="Batal ubah odometer"
+              >
+                <Text style={styles.modalCancelText}>Batal</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.odoSave, savingOdo && styles.modalBusy]}
+                onPress={saveOdometer}
+                disabled={savingOdo}
+                accessibilityRole="button"
+                accessibilityLabel="Simpan odometer"
+              >
+                {savingOdo ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.odoSaveText}>Simpan</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
         visible={confirming}
         transparent
         animationType="fade"
@@ -235,6 +366,45 @@ const styles = StyleSheet.create({
   },
   odoValue: { fontSize: 20, fontWeight: '800', color: '#0b1727' },
   odoLabel: { fontSize: 11, color: '#98a2b3' },
+  odoEdit: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary + '14',
+  },
+  odoInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    marginTop: 14,
+    backgroundColor: '#f3f6fb',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e9f0',
+    paddingHorizontal: 14,
+  },
+  odoInput: {
+    flex: 1,
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#0b1727',
+    paddingVertical: 12,
+  },
+  odoInputUnit: { fontSize: 15, fontWeight: '700', color: '#98a2b3' },
+  odoSave: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 13,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+  },
+  odoSaveText: { color: '#fff', fontWeight: '700', fontSize: 14 },
   sectionTitle: { fontSize: 15, fontWeight: '800', color: '#0b1727', marginTop: 4 },
   compRow: { paddingVertical: 4 },
   compMeta: { fontSize: 11, color: '#98a2b3', marginLeft: 100, marginTop: 2 },

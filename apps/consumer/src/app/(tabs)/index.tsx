@@ -99,7 +99,7 @@ export default function Garage() {
               // The proactive-notification moment (storyline step 3): deep-link into booking.
               const all = bikes.data ?? [];
               const dueBike =
-                all.find((b) => b.health.some((h) => h.type === 'oil' && h.pct_used >= 80)) ??
+                all.find((b) => (b.health ?? []).some((h) => h.type === 'oil' && h.pct_used >= 80)) ??
                 all[0];
               if (!dueBike) return;
               supabase
@@ -132,7 +132,8 @@ export default function Garage() {
         </Pressable>
       }
       renderItem={({ item }) => {
-        const worst = [...item.health].sort((a, b) => b.pct_used - a.pct_used)[0];
+        const health = item.health ?? [];
+        const worst = [...health].sort((a, b) => b.pct_used - a.pct_used)[0];
         return (
           <Pressable style={styles.cell} onPress={() => router.push({ pathname: '/bike/[id]', params: { id: item.id } })}>
           <Card style={[styles.bikeCard, styles.cellCard]}>
@@ -143,14 +144,14 @@ export default function Garage() {
                 </Text>
                 <Text style={styles.bikePlate}>{item.plate}</Text>
               </View>
-              <Text style={styles.odo}>{item.odometer_km.toLocaleString('id-ID')} km</Text>
+              <Text style={styles.odo}>{(item.odometer_km ?? 0).toLocaleString('id-ID')} km</Text>
             </View>
             {worst && worst.pct_used >= 80 && (
               <Text style={styles.worst}>
                 {COMPONENT_LABELS[worst.type]} — {worst.pct_used}% terpakai
               </Text>
             )}
-            {item.health.map((h) => (
+            {health.map((h) => (
               <HealthBar key={h.id} label={COMPONENT_LABELS[h.type]} pctUsed={h.pct_used} />
             ))}
           </Card>
