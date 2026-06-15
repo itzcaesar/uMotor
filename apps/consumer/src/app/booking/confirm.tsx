@@ -148,7 +148,14 @@ export default function Confirm() {
             {info.data!.recommended.map((p) => {
               const selected = draft.parts.some((x) => x.id === p.id);
               return (
-                <Pressable key={p.id} style={styles.recRow} onPress={() => draft.togglePart(p)}>
+                <Pressable
+                  key={p.id}
+                  style={styles.recRow}
+                  onPress={() => draft.togglePart(p)}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: selected }}
+                  accessibilityLabel={`${selected ? 'Batalkan' : 'Pilih'} ${p.name}`}
+                >
                   <Ionicons
                     name={selected ? 'checkbox' : 'square-outline'}
                     size={22}

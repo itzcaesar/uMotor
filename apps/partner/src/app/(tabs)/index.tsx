@@ -13,7 +13,7 @@ import {
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { INSTALL_SERVICE_CODE, type Booking, type BookingStatus } from '@umotor/shared';
+import { INSTALL_SERVICE_CODE, formatRp, type Booking, type BookingStatus } from '@umotor/shared';
 import { Card, ErrorState, StatusBadge, colors, useIsWide } from '@/components/ui';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
@@ -112,13 +112,15 @@ export default function Inbox() {
       contentContainerStyle={[styles.content, wide && styles.contentWide]}
       data={rows}
       keyExtractor={(b) => b.id}
-      ListHeaderComponent={(inbox.data?.length ?? 0) > 0 ? searchHeader : null}
+      ListHeaderComponent={(inbox.data?.length ?? 0) > 0 || q ? searchHeader : null}
       refreshControl={
         <RefreshControl refreshing={inbox.isRefetching} onRefresh={() => inbox.refetch()} />
       }
       renderItem={({ item }) => (
         <Pressable
           style={styles.cell}
+          accessibilityRole="button"
+          accessibilityLabel={`Lihat booking ${item.users?.name ?? 'pelanggan'}`}
           onPress={() => router.push({ pathname: '/booking/[id]', params: { id: item.id } })}
         >
           <Card style={styles.cellCard}>
@@ -148,11 +150,13 @@ export default function Inbox() {
                     : '—'}
               </Text>
             </View>
-            <Text style={styles.deposit}>Deposit lunas · Rp 25.000</Text>
+            <Text style={styles.deposit}>Deposit lunas · {formatRp(item.deposit_amount)}</Text>
             {item.status === 'pending' && (
               <Pressable
                 style={[styles.acceptBtn, accept.isPending && styles.acceptBusy]}
                 disabled={accept.isPending}
+                accessibilityRole="button"
+                accessibilityLabel="Terima booking"
                 onPress={() => accept.mutate(item.id)}
               >
                 <Ionicons name="checkmark" size={16} color="#fff" />

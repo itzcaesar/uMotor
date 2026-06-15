@@ -25,6 +25,7 @@ import {
   LayoutDashboard,
   Smartphone,
   Wrench,
+  BarChart3,
 } from "lucide-react";
 import {
   colors,
@@ -345,6 +346,9 @@ export default function OverviewPage() {
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Card>
           <SectionHeader title="Bookings" subtitle="30 hari terakhir" />
+          {daily.length === 0 ? (
+            <ChartEmpty label="Belum ada booking 30 hari terakhir." />
+          ) : (
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={daily} margin={{ left: -16, right: 8, top: 4 }}>
               <defs>
@@ -360,6 +364,7 @@ export default function OverviewPage() {
               <Bar dataKey="n" name="Bookings" fill="url(#barPrimary)" radius={[6, 6, 0, 0]} maxBarSize={28} />
             </BarChart>
           </ResponsiveContainer>
+          )}
         </Card>
 
         <Card>
@@ -367,6 +372,9 @@ export default function OverviewPage() {
             title="Distribusi MotoScore"
             subtitle="Skor kredit 300–850 dari perilaku perawatan motor — bukan riwayat kredit bank."
           />
+          {histogram.length === 0 ? (
+            <ChartEmpty label="Belum ada data MotoScore." />
+          ) : (
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={histogram} margin={{ left: -16, right: 8, top: 4 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef1f6" />
@@ -380,6 +388,7 @@ export default function OverviewPage() {
               </Bar>
             </BarChart>
           </ResponsiveContainer>
+          )}
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
             <Legend color={colors.danger} label="Poor (<580)" />
             <Legend color={colors.warning} label="Fair (580–669)" />
@@ -395,6 +404,9 @@ export default function OverviewPage() {
             title="Pendapatan per sumber"
             subtitle={`Total ${formatRp(revenueTotal)} — semua revenue stream`}
           />
+          {revenueData.length === 0 ? (
+            <ChartEmpty label="Belum ada pendapatan tercatat." />
+          ) : (
           <ResponsiveContainer width="100%" height={280}>
             <PieChart>
               <Pie
@@ -417,6 +429,7 @@ export default function OverviewPage() {
               />
             </PieChart>
           </ResponsiveContainer>
+          )}
         </Card>
 
         <Card>
@@ -424,6 +437,9 @@ export default function OverviewPage() {
             title="Komposisi status booking"
             subtitle={`${nf.format(statusTotal)} booking — sebaran lintas status`}
           />
+          {statusMix.length === 0 ? (
+            <ChartEmpty label="Belum ada data status booking." />
+          ) : (
           <ResponsiveContainer width="100%" height={280}>
             <PieChart>
               <Pie data={statusMix} dataKey="value" nameKey="name" innerRadius={64} outerRadius={104} paddingAngle={2}>
@@ -439,6 +455,7 @@ export default function OverviewPage() {
               />
             </PieChart>
           </ResponsiveContainer>
+          )}
         </Card>
       </div>
 
@@ -453,6 +470,15 @@ export default function OverviewPage() {
           <Target value="Rp 50 M+" label="ARR (target th-2)" />
         </div>
       </Card>
+    </div>
+  );
+}
+
+function ChartEmpty({ label }: { label: string }) {
+  return (
+    <div className="flex h-[260px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-background/40 text-center">
+      <BarChart3 size={28} className="text-muted-soft opacity-50" />
+      <p className="text-sm text-muted-soft">{label}</p>
     </div>
   );
 }

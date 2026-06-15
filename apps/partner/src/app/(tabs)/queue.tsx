@@ -113,6 +113,8 @@ export default function Queue() {
         return (
           <Pressable
             style={styles.cell}
+            accessibilityRole="button"
+            accessibilityLabel={`Lihat booking ${item.users?.name ?? 'pelanggan'}`}
             onPress={() => router.push({ pathname: '/booking/[id]', params: { id: item.id } })}
           >
             <Card style={styles.cellCard}>

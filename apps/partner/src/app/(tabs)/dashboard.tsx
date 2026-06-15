@@ -405,7 +405,12 @@ function QuickAction({
   onPress: () => void;
 }) {
   return (
-    <Pressable style={styles.action} onPress={onPress}>
+    <Pressable
+      style={styles.action}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
       <View style={[styles.actionIcon, { backgroundColor: tint + '1a' }]}>
         <Ionicons name={icon} size={22} color={tint} />
       </View>

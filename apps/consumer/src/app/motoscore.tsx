@@ -221,7 +221,16 @@ export default function MotoScoreScreen() {
         const unlocked = score >= p.min;
         const productOffer = unlocked ? buildOffer(p.kind, score) : null;
         return (
-          <Pressable key={p.title} disabled={!unlocked} onPress={() => openOffer(p)}>
+          <Pressable
+            key={p.title}
+            disabled={!unlocked}
+            onPress={() => openOffer(p)}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !unlocked }}
+            accessibilityLabel={
+              unlocked ? `Buka ${p.title}` : `${p.title}, terkunci, butuh skor ${p.min} atau lebih`
+            }
+          >
             <Card style={[styles.product, !unlocked && styles.productLocked]}>
               <View style={[styles.productIcon, unlocked && styles.productIconUnlocked]}>
                 <Ionicons name={p.icon} size={20} color={unlocked ? '#fff' : '#98a2b3'} />

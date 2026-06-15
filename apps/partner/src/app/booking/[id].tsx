@@ -179,7 +179,7 @@ export default function BookingDetail() {
         <Card>
           <Text style={styles.partsTitle}>Sparepart dipesan</Text>
           {b.booking_parts.map((p, i) => (
-            <View key={`${p.spareparts?.name ?? i}`} style={styles.detailRow}>
+            <View key={`part-${i}`} style={styles.detailRow}>
               <Text style={styles.detailLabel}>
                 {p.spareparts?.name ?? 'Sparepart'}
                 {p.qty > 1 ? ` ×${p.qty}` : ''}

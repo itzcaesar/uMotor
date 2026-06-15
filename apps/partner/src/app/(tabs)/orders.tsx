@@ -181,6 +181,8 @@ export default function Orders() {
       renderItem={({ item }) => (
         <Pressable
           style={styles.cell}
+          accessibilityRole="button"
+          accessibilityLabel={`Lihat pesanan sparepart ${item.users?.name ?? 'pelanggan'}`}
           onPress={() => router.push({ pathname: '/booking/[id]', params: { id: item.id } })}
         >
           <Card style={styles.cellCard}>
@@ -193,7 +195,7 @@ export default function Orders() {
             </Text>
             <View style={styles.parts}>
               {item.booking_parts.map((p, i) => (
-                <View key={`${p.spareparts?.name ?? i}`} style={styles.partRow}>
+                <View key={`${item.id}-${i}`} style={styles.partRow}>
                   <Ionicons name="construct-outline" size={14} color={colors.primary} />
                   <Text style={styles.partName}>
                     {p.spareparts?.name ?? 'Sparepart'}
