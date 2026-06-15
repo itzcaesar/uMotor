@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@umotor/shared';
 import { Card, tabletContainer, useResponsive } from '@/components/ui';
+import { confirmDialog, notify } from '@/lib/dialog';
 import { POSTS, TAG_COLOR, useCommunity } from '@/lib/community';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
@@ -44,37 +45,36 @@ export default function Community() {
   const redeem = (reward: (typeof REWARDS)[number]) => {
     if (!userId || redeeming) return;
     if (balance < reward.cost) {
-      Alert.alert('Poin belum cukup', `Butuh ${reward.cost.toLocaleString('id-ID')} MotoPoints untuk menukar ${reward.title}.`);
+      notify('Poin belum cukup', `Butuh ${reward.cost.toLocaleString('id-ID')} MotoPoints untuk menukar ${reward.title}.`);
       return;
     }
-    Alert.alert('Tukar poin?', `${reward.cost.toLocaleString('id-ID')} MotoPoints untuk "${reward.title}".`, [
-      { text: 'Batal', style: 'cancel' },
-      {
-        text: 'Tukar',
-        onPress: async () => {
-          setRedeeming(reward.id);
-          try {
-            const { error } = await supabase
-              .from('points')
-              .update({ balance: balance - reward.cost })
-              .eq('user_id', userId);
-            if (error) throw error;
-            // Ledger entry so the balance change is auditable like RPC-driven ones.
-            await supabase.from('points_history').insert({
-              user_id: userId,
-              delta: -reward.cost,
-              reason: `Tukar poin: ${reward.title}`,
-            });
-            qc.invalidateQueries({ queryKey: ['loyalty', userId] });
-            Alert.alert('Berhasil ditukar', `${reward.title} masuk ke akunmu. Cek di AstraPay.`);
-          } catch (e) {
-            Alert.alert('Gagal', e instanceof Error ? e.message : 'Coba lagi.');
-          } finally {
-            setRedeeming(null);
-          }
-        },
+    confirmDialog(
+      'Tukar poin?',
+      `${reward.cost.toLocaleString('id-ID')} MotoPoints untuk "${reward.title}".`,
+      async () => {
+        setRedeeming(reward.id);
+        try {
+          const { error } = await supabase
+            .from('points')
+            .update({ balance: balance - reward.cost })
+            .eq('user_id', userId);
+          if (error) throw error;
+          // Ledger entry so the balance change is auditable like RPC-driven ones.
+          await supabase.from('points_history').insert({
+            user_id: userId,
+            delta: -reward.cost,
+            reason: `Tukar poin: ${reward.title}`,
+          });
+          qc.invalidateQueries({ queryKey: ['loyalty', userId] });
+          notify('Berhasil ditukar', `${reward.title} masuk ke akunmu. Cek di AstraPay.`);
+        } catch (e) {
+          notify('Gagal', e instanceof Error ? e.message : 'Coba lagi.');
+        } finally {
+          setRedeeming(null);
+        }
       },
-    ]);
+      { confirmLabel: 'Tukar' },
+    );
   };
 
   return (

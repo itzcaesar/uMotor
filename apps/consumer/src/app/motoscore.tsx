@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -15,6 +14,7 @@ import { colors, formatRp, type MotoScore } from '@umotor/shared';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card, tabletContainer, useResponsive } from '@/components/ui';
 import { ScoreGauge } from '@/components/Gauge';
+import { notify } from '@/lib/dialog';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 
@@ -198,9 +198,9 @@ export default function MotoScoreScreen() {
             ? 'Asuransi motormu aktif.'
             : 'Limit cicilan 0% aktif.';
       setSelected(null);
-      Alert.alert('Berhasil', msg);
+      notify('Berhasil', msg);
     } catch (e) {
-      Alert.alert('Gagal', e instanceof Error ? e.message : 'Coba lagi.');
+      notify('Gagal', e instanceof Error ? e.message : 'Coba lagi.');
     } finally {
       setFinalizing(false);
     }

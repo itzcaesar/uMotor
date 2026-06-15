@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
@@ -13,6 +13,7 @@ import {
   type Workshop,
 } from '@umotor/shared';
 import { Card, tabletContainer, useResponsive } from '@/components/ui';
+import { confirmDialog, notify } from '@/lib/dialog';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 
@@ -131,12 +132,12 @@ export default function BookingStatusScreen() {
     },
     onSuccess: () => {
       qc.invalidateQueries();
-      Alert.alert(
+      notify(
         'Booking dibatalkan',
         `Deposit ${formatRp(booking.data?.deposit_amount ?? 0)} dikembalikan ke saldo AstraPay.`,
       );
     },
-    onError: (e) => Alert.alert('Gagal', e.message),
+    onError: (e) => notify('Gagal', e.message),
   });
 
   const b = booking.data;
@@ -233,13 +234,11 @@ export default function BookingStatusScreen() {
             style={styles.cancelBtn}
             disabled={cancel.isPending}
             onPress={() =>
-              Alert.alert(
+              confirmDialog(
                 'Batalkan booking?',
                 `Slot dilepas dan deposit ${formatRp(b.deposit_amount)} dikembalikan ke saldo AstraPay.`,
-                [
-                  { text: 'Kembali', style: 'cancel' },
-                  { text: 'Batalkan booking', style: 'destructive', onPress: () => cancel.mutate() },
-                ],
+                () => cancel.mutate(),
+                { confirmLabel: 'Batalkan booking', cancelLabel: 'Kembali', destructive: true },
               )
             }
           >

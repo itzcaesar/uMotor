@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  Alert,
   FlatList,
   Pressable,
   RefreshControl,
@@ -15,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { INSTALL_SERVICE_CODE, formatRp, type Booking, type BookingStatus } from '@umotor/shared';
 import { Card, ErrorState, StatusBadge, colors, useIsWide } from '@/components/ui';
+import { notify } from '@/lib/dialog';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 
@@ -42,7 +42,7 @@ export default function Inbox() {
     },
     onMutate: () => Haptics.selectionAsync(),
     onSuccess: () => qc.invalidateQueries(),
-    onError: (e) => Alert.alert('Gagal', (e as Error).message),
+    onError: (e) => notify('Gagal', (e as Error).message),
   });
 
   const inbox = useQuery({

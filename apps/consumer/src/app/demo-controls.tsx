@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { colors, DEMO_BIKE_VARIO_ID, type Motorcycle } from '@umotor/shared';
 import { Card } from '@/components/ui';
+import { notify } from '@/lib/dialog';
 import { useSession } from '@/lib/session';
 import { isConfigured, supabase } from '@/lib/supabase';
 
@@ -33,9 +34,9 @@ export default function DemoControls() {
     try {
       await fn();
       qc.invalidateQueries();
-      Alert.alert('OK', okMsg);
+      notify('OK', okMsg);
     } catch (e) {
-      Alert.alert('Gagal', e instanceof Error ? e.message : 'Error');
+      notify('Gagal', e instanceof Error ? e.message : 'Error');
     } finally {
       setBusy(null);
     }

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -17,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { WorkshopType } from '@umotor/shared';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card, colors, useResponsive } from '@/components/ui';
+import { notify } from '@/lib/dialog';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 
@@ -64,7 +64,7 @@ export default function Signup() {
   const submit = async () => {
     if (busy) return;
     if (!name.trim() || !owner.trim() || !phone.trim() || !address.trim()) {
-      Alert.alert('Lengkapi data', 'Nama bengkel, pemilik, telepon, dan alamat wajib diisi.');
+      notify('Lengkapi data', 'Nama bengkel, pemilik, telepon, dan alamat wajib diisi.');
       return;
     }
     setBusy(true);
@@ -96,13 +96,13 @@ export default function Signup() {
       if (slotErr) throw slotErr;
 
       loginAs(ws.id);
-      Alert.alert(
+      notify(
         'Bengkel terdaftar!',
         `${ws.name} kini menjadi mitra uMotor. Jadwal 7 hari ke depan sudah dibuka.`,
       );
       router.replace('/(tabs)');
     } catch (e) {
-      Alert.alert('Gagal mendaftar', e instanceof Error ? e.message : 'Coba lagi.');
+      notify('Gagal mendaftar', e instanceof Error ? e.message : 'Coba lagi.');
     } finally {
       setBusy(false);
     }

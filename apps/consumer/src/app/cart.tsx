@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,6 +13,7 @@ import { colors, formatRp, INSTALL_SERVICE_CODE, payAstraPay } from '@umotor/sha
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card, QtyStepper, tabletContainer, useResponsive } from '@/components/ui';
 import { selectInstallFee, selectTotal, useCart, type CartItem, type DeliveryMode } from '@/lib/cart';
+import { notify } from '@/lib/dialog';
 import { safeBack } from '@/lib/nav';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
@@ -124,15 +124,15 @@ export default function CartScreen() {
 
       qc.invalidateQueries();
       clear();
-      Alert.alert(
+      notify(
         'Pembayaran berhasil',
         isInstall
           ? 'Pesanan pemasangan dibuat di bengkel penjual. Tunjukkan QR di aplikasi saat datang.'
           : 'Sparepart akan dikirim ke alamatmu. Bukti pembayaran tersimpan di AstraPay.',
-        [{ text: 'Selesai', onPress: () => safeBack('/(tabs)/marketplace') }],
+        () => safeBack('/(tabs)/marketplace'),
       );
     } catch (e) {
-      Alert.alert('Gagal', e instanceof Error ? e.message : 'Pembayaran gagal diproses. Coba lagi.');
+      notify('Gagal', e instanceof Error ? e.message : 'Pembayaran gagal diproses. Coba lagi.');
     } finally {
       setBusy(false);
     }

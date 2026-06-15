@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -18,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { Workshop, WorkshopType } from '@umotor/shared';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card, colors, ErrorState, useResponsive } from '@/components/ui';
+import { confirmDialog, notify } from '@/lib/dialog';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 
@@ -70,7 +70,7 @@ export default function Profile() {
   const save = async () => {
     if (!workshopId || busy) return;
     if (!name.trim() || !address.trim()) {
-      Alert.alert('Lengkapi data', 'Nama bengkel dan alamat wajib diisi.');
+      notify('Lengkapi data', 'Nama bengkel dan alamat wajib diisi.');
       return;
     }
     setBusy(true);
@@ -91,26 +91,24 @@ export default function Profile() {
       if (error) throw error;
       qc.invalidateQueries({ queryKey: ['workshop', workshopId] });
       qc.invalidateQueries({ queryKey: ['dashboard', workshopId] });
-      Alert.alert('Tersimpan', 'Profil bengkel diperbarui. Perubahan langsung tampil di aplikasi pelanggan.');
+      notify('Tersimpan', 'Profil bengkel diperbarui. Perubahan langsung tampil di aplikasi pelanggan.');
     } catch (e) {
-      Alert.alert('Gagal', e instanceof Error ? e.message : 'Coba lagi.');
+      notify('Gagal', e instanceof Error ? e.message : 'Coba lagi.');
     } finally {
       setBusy(false);
     }
   };
 
   const confirmLogout = () => {
-    Alert.alert('Keluar', 'Keluar dari akun bengkel ini?', [
-      { text: 'Batal', style: 'cancel' },
-      {
-        text: 'Keluar',
-        style: 'destructive',
-        onPress: () => {
-          logout();
-          router.replace('/login');
-        },
+    confirmDialog(
+      'Keluar',
+      'Keluar dari akun bengkel ini?',
+      () => {
+        logout();
+        router.replace('/login');
       },
-    ]);
+      { confirmLabel: 'Keluar', destructive: true },
+    );
   };
 
   if (q.isLoading) {

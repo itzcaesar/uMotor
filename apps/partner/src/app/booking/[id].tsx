@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
@@ -8,6 +8,7 @@ import * as Haptics from 'expo-haptics';
 import { formatRp, type BookingStatus } from '@umotor/shared';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card, ErrorState, StatusBadge, colors, useIsWide } from '@/components/ui';
+import { confirmDialog, notify } from '@/lib/dialog';
 import { supabase } from '@/lib/supabase';
 import type { InboxRow } from '../(tabs)/index';
 
@@ -61,7 +62,7 @@ export default function BookingDetail() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries(),
-    onError: (e) => Alert.alert('Gagal', e.message),
+    onError: (e) => notify('Gagal', e.message),
   });
 
   const complete = useMutation({
@@ -71,9 +72,9 @@ export default function BookingDetail() {
     },
     onSuccess: () => {
       qc.invalidateQueries();
-      Alert.alert('Servis selesai', 'Pelanggan mendapat +5 MotoScore dan +500 MotoPoints.');
+      notify('Servis selesai', 'Pelanggan mendapat +5 MotoScore dan +500 MotoPoints.');
     },
-    onError: (e) => Alert.alert('Gagal', e.message),
+    onError: (e) => notify('Gagal', e.message),
   });
 
   const b = booking.data;
@@ -101,13 +102,11 @@ export default function BookingDetail() {
               label: 'Selesaikan servis',
               color: colors.accent,
               onPress: () =>
-                Alert.alert(
+                confirmDialog(
                   'Selesaikan servis?',
                   `Sisa tagihan ${formatRp(remaining)} akan ditagih via AstraPay.`,
-                  [
-                    { text: 'Batal', style: 'cancel' },
-                    { text: 'Selesaikan', onPress: () => complete.mutate() },
-                  ],
+                  () => complete.mutate(),
+                  { confirmLabel: 'Selesaikan' },
                 ),
             }
           : null;
@@ -205,10 +204,12 @@ export default function BookingDetail() {
           style={styles.cancel}
           disabled={busy}
           onPress={() =>
-            Alert.alert('Tolak booking?', 'Slot dilepas dan deposit dikembalikan.', [
-              { text: 'Batal', style: 'cancel' },
-              { text: 'Tolak', style: 'destructive', onPress: () => transition.mutate('cancelled') },
-            ])
+            confirmDialog(
+              'Tolak booking?',
+              'Slot dilepas dan deposit dikembalikan.',
+              () => transition.mutate('cancelled'),
+              { confirmLabel: 'Tolak', destructive: true },
+            )
           }
         >
           <Text style={styles.cancelText}>Tolak / batalkan</Text>

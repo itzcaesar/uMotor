@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -19,6 +18,7 @@ import {
   type Motorcycle,
 } from '@umotor/shared';
 import { Card, tabletContainer, useResponsive } from '@/components/ui';
+import { notify } from '@/lib/dialog';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 
@@ -118,12 +118,12 @@ export default function FinanceHub() {
           .eq('id', userId);
       }
       qc.invalidateQueries();
-      Alert.alert(
+      notify(
         'BBM terisi',
         `Odometer ${selectedBike.plate} diperbarui otomatis +${estKm} km (${liters} L × ${selectedBike.avg_consumption_kml} km/L). Cek health bar di Garasi.`,
       );
     } catch (e) {
-      Alert.alert('Gagal', e instanceof Error ? e.message : 'Coba lagi.');
+      notify('Gagal', e instanceof Error ? e.message : 'Coba lagi.');
     } finally {
       setBusy(null);
     }

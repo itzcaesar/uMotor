@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -17,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { formatRp } from '@umotor/shared';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card, colors, useResponsive } from '@/components/ui';
+import { notify } from '@/lib/dialog';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 
@@ -62,7 +62,7 @@ export default function SparepartNew() {
   const submit = async () => {
     if (busy) return;
     if (!name.trim() || !price.trim()) {
-      Alert.alert('Lengkapi data', 'Nama produk dan harga wajib diisi.');
+      notify('Lengkapi data', 'Nama produk dan harga wajib diisi.');
       return;
     }
     setBusy(true);
@@ -78,11 +78,11 @@ export default function SparepartNew() {
       });
       if (error) throw error;
       qc.invalidateQueries({ queryKey: ['catalog'] });
-      Alert.alert('Produk terbit', `${name.trim()} kini dijual di marketplace uMotor.`);
+      notify('Produk terbit', `${name.trim()} kini dijual di marketplace uMotor.`);
       if (router.canGoBack()) router.back();
       else router.replace('/(tabs)/orders');
     } catch (e) {
-      Alert.alert('Gagal', e instanceof Error ? e.message : 'Coba lagi.');
+      notify('Gagal', e instanceof Error ? e.message : 'Coba lagi.');
     } finally {
       setBusy(false);
     }

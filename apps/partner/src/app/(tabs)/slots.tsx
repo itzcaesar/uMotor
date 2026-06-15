@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, type Slot } from '@umotor/shared';
 import { Card, ErrorState, useIsWide } from '@/components/ui';
+import { notify } from '@/lib/dialog';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 
@@ -73,7 +74,7 @@ export default function SlotsConfig() {
       if (error) throw error;
     },
     onSuccess: invalidate,
-    onError: (e) => Alert.alert('Gagal', e.message),
+    onError: (e) => notify('Gagal', e.message),
   });
 
   const openSlot = useMutation({
@@ -86,7 +87,7 @@ export default function SlotsConfig() {
       if (error) throw error;
     },
     onSuccess: invalidate,
-    onError: (e) => Alert.alert('Gagal', e.message),
+    onError: (e) => notify('Gagal', e.message),
   });
 
   const closeSlot = useMutation({
@@ -95,7 +96,7 @@ export default function SlotsConfig() {
       if (error) throw error;
     },
     onSuccess: invalidate,
-    onError: (e) => Alert.alert('Gagal', e.message),
+    onError: (e) => notify('Gagal', e.message),
   });
 
   const daySlots = (slots.data ?? []).filter((s) => dayKey(new Date(s.slot_at)) === day);
@@ -196,7 +197,7 @@ export default function SlotsConfig() {
                 disabled={busy}
                 onPress={() => {
                   if (slot.booked_count > 0) {
-                    Alert.alert('Tidak bisa ditutup', 'Slot ini sudah ada booking.');
+                    notify('Tidak bisa ditutup', 'Slot ini sudah ada booking.');
                     return;
                   }
                   closeSlot.mutate(slot.id);

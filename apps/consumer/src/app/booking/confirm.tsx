@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -22,6 +21,7 @@ import {
 } from '@umotor/shared';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card, tabletContainer, useResponsive } from '@/components/ui';
+import { notify } from '@/lib/dialog';
 import { safeBack } from '@/lib/nav';
 import { selectDraftTotal, useDraft } from '@/lib/draft';
 import { useSession } from '@/lib/session';
@@ -104,11 +104,9 @@ export default function Confirm() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       if (msg.includes('slot_full')) {
-        Alert.alert('Slot penuh', 'Slot baru saja terisi. Pilih slot lain.', [
-          { text: 'OK', onPress: () => safeBack('/(tabs)') },
-        ]);
+        notify('Slot penuh', 'Slot baru saja terisi. Pilih slot lain.', () => safeBack('/(tabs)'));
       } else {
-        Alert.alert('Gagal', msg);
+        notify('Gagal', msg);
       }
     } finally {
       setBusy(false);

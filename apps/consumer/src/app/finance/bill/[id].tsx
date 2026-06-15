@@ -1,11 +1,12 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, formatRp } from '@umotor/shared';
 import { Card, tabletContainer, useResponsive } from '@/components/ui';
 import { PaymentOverlay, usePayment } from '@/components/PaymentOverlay';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { notify } from '@/lib/dialog';
 import { safeBack } from '@/lib/nav';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
@@ -116,12 +117,10 @@ export default function BillDetail() {
       qc.invalidateQueries({ queryKey: ['finance', userId] });
       qc.invalidateQueries({ queryKey: ['bill', id] });
       clear();
-      Alert.alert('Pembayaran berhasil', `${bill.name} sudah lunas via AstraPay.`, [
-        { text: 'Selesai', onPress: () => safeBack('/(tabs)/finance') },
-      ]);
+      notify('Pembayaran berhasil', `${bill.name} sudah lunas via AstraPay.`, () => safeBack('/(tabs)/finance'));
     } catch (e) {
       clear();
-      Alert.alert('Gagal', e instanceof Error ? e.message : 'Coba lagi.');
+      notify('Gagal', e instanceof Error ? e.message : 'Coba lagi.');
     }
   };
 
