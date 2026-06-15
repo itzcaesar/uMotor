@@ -86,7 +86,12 @@ export default function Scan() {
     setState('ok');
     setMessage('Check-in berhasil!');
     qc.invalidateQueries();
-    setTimeout(() => router.back(), 1200);
+    // Guard the back-stack: a direct/deep-link entry (or web refresh) has nothing
+    // to pop, which throws "GO_BACK not handled" — fall back to the queue.
+    setTimeout(() => {
+      if (router.canGoBack()) router.back();
+      else router.replace('/(tabs)/queue');
+    }, 1200);
   };
 
   return (

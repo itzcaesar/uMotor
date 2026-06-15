@@ -24,10 +24,16 @@ export default function BookingDetail() {
   const [copied, setCopied] = useState(false);
 
   const copyToken = async (token: string) => {
-    await Clipboard.setStringAsync(token);
-    Haptics.selectionAsync();
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    try {
+      // Web clipboard rejects on an insecure (http) context; don't let that
+      // become an unhandled rejection that swallows the feedback.
+      await Clipboard.setStringAsync(token);
+      Haptics.selectionAsync();
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      notify('Gagal menyalin', 'Salin token QR secara manual.');
+    }
   };
 
   const booking = useQuery({
