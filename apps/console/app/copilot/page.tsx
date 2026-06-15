@@ -16,7 +16,7 @@ export default function CopilotPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">uMotor AI</h1>
           <p className="mt-1 text-muted">
-            Analis ops bertenaga Claude — bertanya dalam bahasa biasa, dijawab dari data platform live.
+            Analis ops uMotor AI — bertanya dalam bahasa biasa, dijawab dari data platform live.
           </p>
         </div>
       </div>

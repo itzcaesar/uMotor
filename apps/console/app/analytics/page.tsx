@@ -42,7 +42,7 @@ type Booking = { status: BookingStatus; service_id: string; total_amount: number
 type Service = { id: string; name: string };
 type WorkshopRow = { name: string; type: string; rating: number; bookings: { count: number }[] };
 
-/** Local YYYY-MM-DD (not UTC) — matches the day-key rule in CLAUDE.md. */
+/** Local YYYY-MM-DD day key (not UTC toISOString) so the day strip never shifts. */
 function dayKey(ts: string) {
   return new Date(ts).toLocaleDateString("en-CA"); // YYYY-MM-DD in local tz
 }

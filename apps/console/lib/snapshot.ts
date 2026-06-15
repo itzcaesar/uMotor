@@ -1,10 +1,10 @@
 import { createSupabase, formatRp, type KpiOverview, type RevenueBreakdown } from "@umotor/shared";
 
 /**
- * Live platform snapshot for the AI Ops Copilot. Gathered server-side from the
- * same hosted Supabase the dashboards read (anon key, permissive RLS). Both the
- * Claude path (as grounding context) and the keyless fallback analyst read this
- * — so the copilot always answers with real numbers, never hallucinated ones.
+ * Live platform snapshot for the uMotor AI Copilot. Gathered server-side from
+ * the same hosted Supabase the dashboards read (anon key, permissive RLS). Both
+ * the model path (as grounding context) and the keyless fallback analyst read
+ * this — so the copilot always answers with real numbers, never hallucinated.
  */
 
 const REVENUE_LABELS: Record<string, string> = {
@@ -184,7 +184,7 @@ export async function gatherSnapshot(): Promise<PlatformSnapshot | null> {
   };
 }
 
-/** Compact, model-readable rendering of the snapshot for the Claude system prompt. */
+/** Compact, model-readable rendering of the snapshot for the uMotor AI system prompt. */
 export function snapshotToText(s: PlatformSnapshot): string {
   const lines: string[] = [];
   if (s.kpi) {

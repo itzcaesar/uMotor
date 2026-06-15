@@ -5,95 +5,32 @@ import { Search, Star, Wrench } from "lucide-react";
 import { colors, type Workshop } from "@umotor/shared";
 import { getSupabase } from "@/lib/supabase";
 import { Card, PageHeader, Pill, SectionHeader, SetupNotice } from "@/components/ui";
+import { WorkshopMap as LeafletWorkshopMap } from "@/components/workshop-map";
 
 type WorkshopRow = Workshop & { bookings: { count: number }[] };
 
 /**
- * Geographic spread of partner workshops (PRD 03). Dependency-free SVG scatter
- * over the Bandung bounding box — no map-tile lib, so it works offline on
- * demo day. Dot size scales with booking volume; AHASS red, independent blue.
+ * Geographic spread of partner workshops (PRD 03) — real interactive Leaflet
+ * map over OpenStreetMap tiles (no API key). Markers sized by booking volume,
+ * AHASS red / independent blue, with a popup per shop.
  */
 function WorkshopMap({ rows }: { rows: WorkshopRow[] }) {
-  const points = rows.filter((w) => w.lat != null && w.lng != null);
-  if (points.length === 0) return null;
-
-  const lats = points.map((w) => Number(w.lat));
-  const lngs = points.map((w) => Number(w.lng));
-  const pad = 0.01;
-  const minLat = Math.min(...lats) - pad;
-  const maxLat = Math.max(...lats) + pad;
-  const minLng = Math.min(...lngs) - pad;
-  const maxLng = Math.max(...lngs) + pad;
-  const W = 920;
-  const H = 360;
-  const x = (lng: number) => ((lng - minLng) / (maxLng - minLng)) * W;
-  const y = (lat: number) => H - ((lat - minLat) / (maxLat - minLat)) * H;
-  const maxBookings = Math.max(1, ...points.map((w) => w.bookings[0]?.count ?? 0));
-
+  const withCoords = rows.filter((w) => w.lat != null && w.lng != null).length;
   return (
     <Card>
       <SectionHeader
         title="Peta sebaran bengkel"
-        subtitle="Bandung Raya — ukuran titik mengikuti volume booking. Arahkan kursor untuk nama bengkel."
+        subtitle="Bandung Raya — peta interaktif (OpenStreetMap). Ukuran titik mengikuti volume booking; klik titik untuk detail."
       />
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
-        className="w-full rounded-xl border border-border bg-[#f4f7fb]"
-        role="img"
-        aria-label="Peta sebaran bengkel mitra di Bandung"
-      >
-        {/* subtle grid so the scatter reads as a map, not a chart */}
-        {Array.from({ length: 7 }, (_, i) => (
-          <line
-            key={`v${i}`}
-            x1={(W / 7) * (i + 0.5)}
-            y1={0}
-            x2={(W / 7) * (i + 0.5)}
-            y2={H}
-            stroke="#e5ecf5"
-            strokeWidth={1}
-          />
-        ))}
-        {Array.from({ length: 4 }, (_, i) => (
-          <line
-            key={`h${i}`}
-            x1={0}
-            y1={(H / 4) * (i + 0.5)}
-            x2={W}
-            y2={(H / 4) * (i + 0.5)}
-            stroke="#e5ecf5"
-            strokeWidth={1}
-          />
-        ))}
-        {points.map((w) => {
-          const n = w.bookings[0]?.count ?? 0;
-          const r = 4 + (n / maxBookings) * 8;
-          const fill = w.type === "ahass" ? "#dc2626" : colors.primary;
-          return (
-            <circle
-              key={w.id}
-              cx={x(Number(w.lng))}
-              cy={y(Number(w.lat))}
-              r={r}
-              fill={fill}
-              fillOpacity={0.55}
-              stroke={fill}
-              strokeWidth={1.5}
-            >
-              <title>{`${w.name} — ★ ${Number(w.rating).toFixed(1)} · ${n} booking`}</title>
-            </circle>
-          );
-        })}
-      </svg>
+      <LeafletWorkshopMap rows={rows} />
       <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted">
         <span className="flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-full bg-red-600/70" /> AHASS
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: `${colors.primary}b3` }} />{" "}
-          Independen
+          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: `${colors.primary}b3` }} /> Independen
         </span>
-        <span className="text-muted-soft">{points.length} bengkel dengan koordinat</span>
+        <span className="text-muted-soft">{withCoords} bengkel dengan koordinat</span>
       </div>
     </Card>
   );

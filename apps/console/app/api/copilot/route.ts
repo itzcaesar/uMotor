@@ -73,7 +73,7 @@ export async function POST(req: Request) {
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        const claudeStream = client.messages.stream({
+        const aiStream = client.messages.stream({
           model: MODEL,
           max_tokens: 1500,
           thinking: { type: "adaptive" },
@@ -81,7 +81,7 @@ export async function POST(req: Request) {
           system,
           messages: messages.map((m) => ({ role: m.role, content: m.content })),
         });
-        for await (const event of claudeStream) {
+        for await (const event of aiStream) {
           if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
             controller.enqueue(encoder.encode(event.delta.text));
           }
@@ -89,7 +89,7 @@ export async function POST(req: Request) {
         controller.close();
       } catch (err) {
         // Never die on stage — fall back to the local analyst with a short note.
-        console.error("[copilot] Claude error, falling back:", err);
+        console.error("[copilot] uMotor AI error, falling back:", err);
         controller.enqueue(
           encoder.encode("_(uMotor AI offline — analisis lokal dari data live)_\n\n" + localAnswer(lastUser, snapshot)),
         );

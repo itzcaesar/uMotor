@@ -120,8 +120,12 @@ export function CopilotChat({ compact = false }: { compact?: boolean }) {
   );
 
   return (
-    <div className={`flex flex-col ${compact ? "h-[32rem]" : "h-[calc(100vh-12rem)] min-h-[28rem]"}`}>
-      <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-1 py-2">
+    <div
+      className={`flex min-h-0 flex-col ${
+        compact ? "h-[30rem] max-h-[calc(100dvh-9.5rem)]" : "h-[calc(100vh-13rem)] min-h-[24rem]"
+      }`}
+    >
+      <div ref={scrollRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-1 py-2">
         {messages.map((m, i) => (
           <div key={i} className={`flex gap-2.5 ${m.role === "user" ? "flex-row-reverse" : ""}`}>
             <span
@@ -189,8 +193,8 @@ export function CopilotChat({ compact = false }: { compact?: boolean }) {
       </form>
       <p className="mt-2 px-1 text-[11px] text-muted-soft">
         {mode === "local"
-          ? "Mode lokal — analisis deterministik dari data live (set ANTHROPIC_API_KEY untuk jawaban Claude)."
-          : "Didukung Claude (Opus 4.8) · grounded pada data live uMotor."}
+          ? "Mode lokal — analisis deterministik dari data live uMotor."
+          : "uMotor AI · grounded pada data live uMotor."}
       </p>
     </div>
   );
@@ -219,8 +223,8 @@ export function CopilotWidget() {
         </button>
       )}
       {open && (
-        <div className="fixed bottom-6 right-6 z-40 flex w-[26rem] max-w-[calc(100vw-3rem)] flex-col rounded-2xl border border-border bg-card shadow-2xl">
-          <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <div className="fixed bottom-6 right-6 z-40 flex max-h-[calc(100dvh-3rem)] w-[26rem] max-w-[calc(100vw-3rem)] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
+          <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
             <div className="flex items-center gap-2.5">
               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-[#1769d6] text-white">
                 <Sparkles size={17} />
@@ -238,7 +242,7 @@ export function CopilotWidget() {
               <X size={18} />
             </button>
           </div>
-          <div className="px-4 pb-4 pt-1">
+          <div className="flex min-h-0 flex-1 flex-col px-4 pb-4 pt-1">
             <CopilotChat compact />
           </div>
         </div>
