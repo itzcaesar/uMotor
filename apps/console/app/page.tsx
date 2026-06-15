@@ -29,6 +29,9 @@ import {
 import {
   colors,
   formatRp,
+  statusColor,
+  STATUS_LABELS,
+  type BookingStatus,
   type KpiOverview,
   type MotoScoreBucket,
   type RevenueBreakdown,
@@ -81,6 +84,7 @@ export default function OverviewPage() {
   const [daily, setDaily] = useState<{ day: string; n: number }[]>([]);
   const [revenue, setRevenue] = useState<RevenueBreakdown[]>([]);
   const [cross, setCross] = useState<CrossApp | null>(null);
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
   const [pulse, setPulse] = useState(false);
 
   const load = useCallback(async () => {
@@ -109,13 +113,17 @@ export default function OverviewPage() {
     }
 
     // Cross-app footprint — consumer (rides, bills, score) + partner (slots, sparepart, net).
-    const [rideRes, billRes, slotRes, partRes, wsRes] = await Promise.all([
+    const [rideRes, billRes, slotRes, partRes, wsRes, statusRes] = await Promise.all([
       supabase.from("rides").select("distance_m, status"),
       supabase.from("bills").select("paid, amount"),
       supabase.from("slots").select("capacity, booked_count"),
       supabase.from("spareparts").select("*", { count: "exact", head: true }),
       supabase.from("workshops").select("type"),
+      supabase.from("bookings").select("status").limit(5000),
     ]);
+    const sc: Record<string, number> = {};
+    for (const row of (statusRes.data as { status: string }[]) ?? []) sc[row.status] = (sc[row.status] ?? 0) + 1;
+    setStatusCounts(sc);
     const rideKm = Math.round(
       ((rideRes.data as { distance_m: number; status: string }[]) ?? [])
         .filter((r) => r.status === "completed")
@@ -204,6 +212,15 @@ export default function OverviewPage() {
     if (kpi) out.push(`${kpi.bookings_today} booking masuk hari ini di jaringan ${kpi.partner_workshops} bengkel mitra.`);
     return out;
   }, [daily, revenue, revenueTotal, buckets, kpi]);
+
+  const statusMix = useMemo(
+    () =>
+      (Object.keys(STATUS_LABELS) as BookingStatus[])
+        .map((s) => ({ name: STATUS_LABELS[s], value: statusCounts[s] ?? 0, status: s }))
+        .filter((d) => d.value > 0),
+    [statusCounts],
+  );
+  const statusTotal = useMemo(() => statusMix.reduce((s, d) => s + d.value, 0), [statusMix]);
 
   if (!supabase) return <SetupNotice />;
 
@@ -393,6 +410,28 @@ export default function OverviewPage() {
                 ))}
               </Pie>
               <Tooltip formatter={(value) => formatRp(Number(value))} />
+              <RechartsLegend
+                verticalAlign="bottom"
+                iconType="circle"
+                formatter={(value) => <span className="text-sm text-muted">{value}</span>}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        </Card>
+
+        <Card>
+          <SectionHeader
+            title="Komposisi status booking"
+            subtitle={`${nf.format(statusTotal)} booking — sebaran lintas status`}
+          />
+          <ResponsiveContainer width="100%" height={280}>
+            <PieChart>
+              <Pie data={statusMix} dataKey="value" nameKey="name" innerRadius={64} outerRadius={104} paddingAngle={2}>
+                {statusMix.map((d) => (
+                  <Cell key={d.status} fill={statusColor[d.status]} />
+                ))}
+              </Pie>
+              <Tooltip formatter={(value) => nf.format(Number(value))} />
               <RechartsLegend
                 verticalAlign="bottom"
                 iconType="circle"

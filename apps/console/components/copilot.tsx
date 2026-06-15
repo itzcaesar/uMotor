@@ -122,7 +122,7 @@ export function CopilotChat({ compact = false }: { compact?: boolean }) {
   return (
     <div
       className={`flex min-h-0 flex-col ${
-        compact ? "h-[30rem] max-h-[calc(100dvh-9.5rem)]" : "h-[calc(100vh-13rem)] min-h-[24rem]"
+        compact ? "flex-1" : "h-[calc(100vh-13rem)] min-h-[24rem]"
       }`}
     >
       <div ref={scrollRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-1 py-2">
