@@ -227,6 +227,7 @@ export default function BookingStatusScreen() {
             label={b.status === 'completed' ? 'Sisa dibayar' : 'Sisa tagihan'}
             value={formatRp(remaining)}
           />
+          {b.astrapay_ref && <InfoRow label="Ref AstraPay" value={b.astrapay_ref} />}
         </Card>
 
         {(b.status === 'pending' || b.status === 'confirmed') && (

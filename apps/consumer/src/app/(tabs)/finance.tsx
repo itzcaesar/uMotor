@@ -14,9 +14,9 @@ import {
   colors,
   estimateOdometer,
   formatRp,
-  payAstraPay,
   type Motorcycle,
 } from '@umotor/shared';
+import { payAstraPaySmart } from '@/lib/astrapay';
 import { Card, tabletContainer, useResponsive } from '@/components/ui';
 import { notify } from '@/lib/dialog';
 import { useSession } from '@/lib/session';
@@ -104,9 +104,15 @@ export default function FinanceHub() {
     if (!userId || !selectedBike || busy) return;
     setBusy('fuel');
     try {
-      await payAstraPay(fuelAmount, `Top-up BBM ${selectedBike.plate}`);
+      const res = await payAstraPaySmart(fuelAmount, `Top-up BBM ${selectedBike.plate}`, { userId });
       const [pay, odo, user] = await Promise.all([
-        supabase.from('payments').insert({ user_id: userId, type: 'bill', amount: fuelAmount }),
+        supabase.from('payments').insert({
+          user_id: userId,
+          type: 'bill',
+          amount: fuelAmount,
+          astrapay_ref: res.ref ?? res.txId,
+          astrapay_partner_ref: res.partnerRef ?? null,
+        }),
         supabase.rpc('advance_odometer', { p_motorcycle_id: selectedBike.id, p_km: estKm }),
         supabase.from('users').select('astrapay_balance').eq('id', userId).single(),
       ]);

@@ -20,6 +20,10 @@ export interface User {
   avatar_url: string | null;
   astrapay_balance: number;
   created_at: string;
+  // AstraPay account binding (0004_astrapay.sql). Set once the wallet is linked;
+  // the bound token itself lives server-side and is never read by the client.
+  astrapay_phone?: string | null;
+  astrapay_bound_at?: string | null;
 }
 
 export interface Motorcycle {
@@ -102,6 +106,7 @@ export interface Booking {
   qr_token: string;
   created_at: string;
   updated_at: string;
+  astrapay_ref?: string | null; // deposit payment referenceNo (0004_astrapay.sql)
 }
 
 export interface Sparepart {
@@ -135,6 +140,10 @@ export interface Payment {
   amount: number;
   status: string;
   created_at: string;
+  // AstraPay reconciliation (0004_astrapay.sql).
+  astrapay_ref?: string | null; // AstraPay referenceNo
+  astrapay_partner_ref?: string | null; // our partnerReferenceNo
+  astrapay_settled_at?: string | null; // stamped by the notification webhook
 }
 
 export interface AppNotification {

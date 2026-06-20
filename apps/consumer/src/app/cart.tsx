@@ -9,7 +9,8 @@ import {
 } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, formatRp, INSTALL_SERVICE_CODE, payAstraPay } from '@umotor/shared';
+import { colors, formatRp, INSTALL_SERVICE_CODE } from '@umotor/shared';
+import { payAstraPaySmart } from '@/lib/astrapay';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card, QtyStepper, tabletContainer, useResponsive } from '@/components/ui';
 import { selectInstallFee, selectTotal, useCart, type CartItem, type DeliveryMode } from '@/lib/cart';
@@ -95,8 +96,8 @@ export default function CartScreen() {
     if (!userId || empty) return;
     setBusy(true);
     try {
-      // Fake AstraPay payment (shared mock) — never fails in demo build.
-      await payAstraPay(grandTotal, 'Pembelian sparepart uMotor');
+      // AstraPay payment — live SNAP debit when enabled, shared mock otherwise.
+      const res = await payAstraPaySmart(grandTotal, 'Pembelian sparepart uMotor', { userId });
 
       // Install mode → create the installation order(s) FIRST. If a booking
       // insert fails we abort here, before recording payment / debiting the
@@ -104,9 +105,13 @@ export default function CartScreen() {
       if (isInstall) await createInstallOrders();
 
       // Record the payment so it shows up as GMV in the Console.
-      const { error: payErr } = await supabase
-        .from('payments')
-        .insert({ user_id: userId, type: 'sparepart', amount: grandTotal });
+      const { error: payErr } = await supabase.from('payments').insert({
+        user_id: userId,
+        type: 'sparepart',
+        amount: grandTotal,
+        astrapay_ref: res.ref ?? res.txId,
+        astrapay_partner_ref: res.partnerRef ?? null,
+      });
       if (payErr) throw payErr;
 
       // Decrement the demo wallet so the Profile balance reacts.
@@ -126,9 +131,10 @@ export default function CartScreen() {
       clear();
       notify(
         'Pembayaran berhasil',
-        isInstall
+        (isInstall
           ? 'Pesanan pemasangan dibuat di bengkel penjual. Tunjukkan QR di aplikasi saat datang.'
-          : 'Sparepart akan dikirim ke alamatmu. Bukti pembayaran tersimpan di AstraPay.',
+          : 'Sparepart akan dikirim ke alamatmu. Bukti pembayaran tersimpan di AstraPay.') +
+          `\n\nRef AstraPay: ${res.ref ?? res.txId}`,
         () => safeBack('/(tabs)/marketplace'),
       );
     } catch (e) {

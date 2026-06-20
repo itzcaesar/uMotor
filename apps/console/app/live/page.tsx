@@ -69,7 +69,7 @@ export default function LivePage() {
     const [bRes, rRes, pRes, sRes, nRes] = await Promise.all([
       supabase.from("v_bookings_recent").select("*").limit(20),
       supabase.from("rides").select("id, distance_m, eco_score, flagged, flag_reason, status, created_at, users(name)").order("created_at", { ascending: false }).limit(12),
-      supabase.from("payments").select("id, type, amount, created_at, users(name)").order("created_at", { ascending: false }).limit(15),
+      supabase.from("payments").select("id, type, amount, astrapay_ref, created_at, users(name)").order("created_at", { ascending: false }).limit(15),
       supabase.from("motoscore_history").select("id, delta, reason, created_at, users(name)").order("created_at", { ascending: false }).limit(15),
       supabase.from("notifications").select("id, type, title, body, created_at, users(name)").order("created_at", { ascending: false }).limit(15),
     ]);
@@ -117,14 +117,16 @@ export default function LivePage() {
       });
     }
     for (const p of (pRes.data ?? []) as unknown as {
-      id: string; type: string; amount: number; created_at: string; users: Named;
+      id: string; type: string; amount: number; astrapay_ref: string | null; created_at: string; users: Named;
     }[]) {
+      const label = PAYMENT_LABEL[p.type] ?? p.type;
       merged.push({
         id: `p-${p.id}`,
         kind: "payment",
         at: p.created_at,
         title: `${p.users?.name ?? "Pengguna"}`,
-        detail: PAYMENT_LABEL[p.type] ?? p.type,
+        // Show the AstraPay referenceNo when present — live debits carry it.
+        detail: p.astrapay_ref ? `${label} · ${p.astrapay_ref}` : label,
         amount: p.amount,
         tone: "accent",
         app: "consumer",

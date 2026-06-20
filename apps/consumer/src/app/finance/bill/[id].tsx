@@ -104,10 +104,16 @@ export default function BillDetail() {
     // fuel top-up and the cart) — so a bill larger than the seeded balance, e.g.
     // the Rp 1.150.000 cicilan against a Rp 500.000 wallet, still completes.
     try {
-      await payAstra(bill.amount, bill.name); // drives the branded overlay
+      const res = await payAstra(bill.amount, bill.name, { userId }); // drives the branded overlay
       const [upd, payRes] = await Promise.all([
         supabase.from('bills').update({ paid: true }).eq('id', bill.id),
-        supabase.from('payments').insert({ user_id: userId, type: 'bill', amount: bill.amount }),
+        supabase.from('payments').insert({
+          user_id: userId,
+          type: 'bill',
+          amount: bill.amount,
+          astrapay_ref: res.ref ?? res.txId,
+          astrapay_partner_ref: res.partnerRef ?? null,
+        }),
       ]);
       if (upd.error || payRes.error) throw upd.error ?? payRes.error;
       await supabase

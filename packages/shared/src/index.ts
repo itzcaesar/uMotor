@@ -3,6 +3,7 @@ export * from './constants';
 export * from './theme';
 export * from './tracking';
 export * from './supabase';
+export * from './astrapay-client';
 export * from './mocks/astrapay';
 export * from './mocks/samsat';
 export * from './mocks/motoscore';

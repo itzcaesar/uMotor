@@ -4,10 +4,10 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   colors,
   formatRp,
-  payAstraPay,
   type AstraPayResult,
   type AstraPayStage,
 } from '@umotor/shared';
+import { payAstraPaySmart } from '@/lib/astrapay';
 
 const STAGE_COPY: Record<AstraPayStage, string> = {
   connecting: 'Menghubungkan ke AstraPay…',
@@ -23,9 +23,13 @@ const STAGE_COPY: Record<AstraPayStage, string> = {
 export function usePayment() {
   const [stage, setStage] = useState<AstraPayStage | null>(null);
   const pay = useCallback(
-    (amount: number, description: string): Promise<AstraPayResult> => {
+    (amount: number, description: string, opts?: { userId?: string }): Promise<AstraPayResult> => {
       setStage('connecting');
-      return payAstraPay(amount, description, { onStage: setStage });
+      // Live SNAP when EXPO_PUBLIC_ASTRAPAY_LIVE=1; mock otherwise (demo default).
+      return payAstraPaySmart(amount, description, { onStage: setStage, userId: opts?.userId }).catch((e) => {
+        setStage(null); // dismiss the overlay so the caller can surface the error
+        throw e;
+      });
     },
     [],
   );

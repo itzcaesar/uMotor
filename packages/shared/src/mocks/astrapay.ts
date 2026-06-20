@@ -8,11 +8,17 @@ export interface AstraPayResult {
   method: 'astrapay';
   /** ISO timestamp the payment settled — for receipts. */
   paidAt: string;
+  /** AstraPay referenceNo (live). Mock reuses txId so call sites always have one. */
+  ref?: string;
+  /** Our partnerReferenceNo (live only) — for reconciliation against AstraPay. */
+  partnerRef?: string;
 }
 
 export interface PayOptions {
   /** Progress callback for the staged payment overlay. */
   onStage?: (stage: AstraPayStage) => void;
+  /** Bound-wallet payer id — live flow reuses a stored token; mock ignores it. */
+  userId?: string;
 }
 
 /** Total mocked latency, split across the connecting → processing → success stages. */
@@ -35,13 +41,15 @@ export function payAstraPay(
     setTimeout(() => onStage?.('processing'), Math.round(ASTRAPAY_LATENCY_MS / 3));
     setTimeout(() => {
       onStage?.('success');
+      const txId = 'AP-' + Math.random().toString(36).slice(2, 10).toUpperCase();
       resolve({
         success: true,
-        txId: 'AP-' + Math.random().toString(36).slice(2, 10).toUpperCase(),
+        txId,
         amount,
         description,
         method: 'astrapay',
         paidAt: new Date().toISOString(),
+        ref: txId,
       });
     }, ASTRAPAY_LATENCY_MS);
   });

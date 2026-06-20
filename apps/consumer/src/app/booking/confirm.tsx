@@ -14,11 +14,11 @@ import {
   colors,
   DEPOSIT_AMOUNT,
   formatRp,
-  payAstraPay,
   type Booking,
   type Motorcycle,
   type Sparepart,
 } from '@umotor/shared';
+import { payAstraPaySmart } from '@/lib/astrapay';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card, tabletContainer, useResponsive } from '@/components/ui';
 import { notify } from '@/lib/dialog';
@@ -79,7 +79,9 @@ export default function Confirm() {
     if (!userId || busy) return;
     setBusy(true);
     try {
-      await payAstraPay(DEPOSIT_AMOUNT, `Deposit booking ${workshop.name}`);
+      const res = await payAstraPaySmart(DEPOSIT_AMOUNT, `Deposit booking ${workshop.name}`, {
+        userId,
+      });
       const { data, error } = await supabase.rpc('book_slot', {
         p_user_id: userId,
         p_motorcycle_id: draft.motorcycleId,
@@ -90,13 +92,18 @@ export default function Confirm() {
       });
       if (error) throw error;
       const booking = data as Booking;
-      // book_slot sets is_home_service when slot is null; attach the GPS address.
-      if (draft.isHomeService && draft.homeAddress) {
-        await supabase
-          .from('bookings')
-          .update({ home_address: draft.homeAddress })
-          .eq('id', booking.id);
-      }
+      // Tag the booking with the AstraPay deposit ref (shown on the receipt);
+      // book_slot sets is_home_service when slot is null, so attach the GPS
+      // address in the same update.
+      const bookingUpdate: Record<string, unknown> = { astrapay_ref: res.ref ?? res.txId };
+      if (draft.isHomeService && draft.homeAddress) bookingUpdate.home_address = draft.homeAddress;
+      await supabase.from('bookings').update(bookingUpdate).eq('id', booking.id);
+      // book_slot inserts the deposit payment server-side — tag it too, so the
+      // Console reconciles against the AstraPay statement.
+      await supabase
+        .from('payments')
+        .update({ astrapay_ref: res.ref ?? res.txId, astrapay_partner_ref: res.partnerRef ?? null })
+        .eq('booking_id', booking.id);
       qc.invalidateQueries();
       draft.reset();
       router.dismissAll();

@@ -371,6 +371,16 @@ authorization_url_path = "/oauth/consent"
 # Allow dynamic client registration
 allow_dynamic_registration = false
 
+# AstraPay SNAP integration. No Supabase Auth in this demo (fake login), so the
+# apps call this function with the anon key only — disable JWT verification.
+[functions.astrapay]
+verify_jwt = false
+
+# AstraPay payment-notification webhook. Called by AstraPay (no JWT) when a
+# debit settles; verify_jwt must be off so the external POST reaches it.
+[functions.astrapay-webhook]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.
