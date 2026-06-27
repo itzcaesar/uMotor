@@ -4,7 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
-import { colors, DEMO_BIKE_VARIO_ID, type Motorcycle } from '@umotor/shared';
+import { colors, DEMO_BIKE_AEROX_ID, type Motorcycle } from '@umotor/shared';
 import { Card } from '@/components/ui';
 import { notify } from '@/lib/dialog';
 import { useSession } from '@/lib/session';
@@ -42,7 +42,7 @@ export default function DemoControls() {
     }
   };
 
-  const vario = bikes.data?.find((b) => b.id === DEMO_BIKE_VARIO_ID) ?? bikes.data?.[0];
+  const hero = bikes.data?.find((b) => b.id === DEMO_BIKE_AEROX_ID) ?? bikes.data?.[0];
 
   return (
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
@@ -62,16 +62,16 @@ export default function DemoControls() {
 
       <Action
         icon="speedometer"
-        title="+500 km odometer (Vario)"
+        title="+500 km odometer (Aerox)"
         desc="Memicu notifikasi 80/95/100% saat threshold terlewati"
         busy={busy === 'odo'}
         onPress={() =>
           run(
             'odo',
             async () => {
-              if (!vario) throw new Error('Motor demo tidak ditemukan');
+              if (!hero) throw new Error('Motor demo tidak ditemukan');
               const { error } = await supabase.rpc('advance_odometer', {
-                p_motorcycle_id: vario.id,
+                p_motorcycle_id: hero.id,
                 p_km: 500,
               });
               if (error) throw error;
@@ -105,8 +105,8 @@ export default function DemoControls() {
 
       <Action
         icon="wallet"
-        title="Reset saldo AstraPay → Rp 500.000"
-        desc="Isi ulang wallet demo di antara latihan pitch"
+        title="Reset saldo AstraPay → Rp 1.500.000"
+        desc="Isi ulang wallet demo di antara latihan pitch (cermin saldo sandbox)"
         busy={busy === 'wallet'}
         onPress={() =>
           run(
@@ -114,11 +114,11 @@ export default function DemoControls() {
             async () => {
               const { error } = await supabase
                 .from('users')
-                .update({ astrapay_balance: 500000 })
+                .update({ astrapay_balance: 1500000 })
                 .eq('id', userId!);
               if (error) throw error;
             },
-            'Saldo kembali Rp 500.000.',
+            'Saldo kembali Rp 1.500.000.',
           )
         }
       />

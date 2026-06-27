@@ -41,8 +41,8 @@ type CuratedEntry = Omit<VehicleInfo, 'plate' | 'region' | 'source'>;
 
 // Curated entries for the plates the demo + seed depend on (treated as verified).
 const CURATED: Record<string, CuratedEntry> = {
-  'D 4821 BJK': mk('Honda', 'Vario 160', 2023, 160, 'Hitam', 'Budi Santoso'),
-  'D 2871 KCE': mk('Yamaha', 'NMAX 155', 2022, 155, 'Biru', 'Budi Santoso'),
+  'D 4821 BJK': mk('Yamaha', 'Aerox 155', 2023, 155, 'Hitam', 'Yanuar Fajar Pratama'),
+  'D 2871 KCE': mk('Honda', 'Vario 160', 2022, 160, 'Biru', 'Yanuar Fajar Pratama'),
   'D 1234 ABC': mk('Honda', 'BeAT', 2021, 110, 'Putih', 'Andi Pratama'),
   'B 5678 DEF': mk('Yamaha', 'Aerox 155', 2023, 155, 'Merah', 'Dewi Anggraini'),
   'D 9012 GHI': mk('Honda', 'PCX 160', 2024, 160, 'Silver', 'Rizki Hidayat'),

@@ -41,15 +41,16 @@ export default function CartScreen() {
 
   // "Pasang di bengkel" → create an installation order per seller workshop.
   // Each becomes a confirmed booking that shows up in the partner Sparepart-orders tab.
-  const createInstallOrders = async () => {
+  const createInstallOrders = async (): Promise<string[]> => {
     const [{ data: svc }, { data: bikes }] = await Promise.all([
       supabase.from('services').select('id').eq('code', INSTALL_SERVICE_CODE).single(),
       supabase.from('motorcycles').select('id').eq('user_id', userId!).order('created_at').limit(1),
     ]);
     const serviceId = (svc as { id: string } | null)?.id;
     const bikeId = (bikes as { id: string }[] | null)?.[0]?.id;
-    if (!serviceId || !bikeId) return; // payment already recorded; skip booking creation
+    if (!serviceId || !bikeId) return []; // can't resolve service/bike → nothing to create
 
+    const createdIds: string[] = [];
     const groups = new Map<string, CartItem[]>();
     for (const it of cartItems) {
       const wid = it.part.workshop_id;
@@ -80,9 +81,11 @@ export default function CartScreen() {
         .select('id')
         .single();
       if (bookingErr) throw bookingErr;
+      const newBookingId = (booking as { id: string }).id;
+      createdIds.push(newBookingId);
       const { error: partsErr } = await supabase.from('booking_parts').insert(
         group.map((it) => ({
-          booking_id: (booking as { id: string }).id,
+          booking_id: newBookingId,
           sparepart_id: it.part.id,
           qty: it.qty,
           unit_price: it.part.price,
@@ -90,19 +93,21 @@ export default function CartScreen() {
       );
       if (partsErr) throw partsErr;
     }
+    return createdIds;
   };
 
   const checkout = async () => {
     if (!userId || empty) return;
     setBusy(true);
+    let createdIds: string[] = [];
     try {
+      // Install mode → create the installation order(s) FIRST, so a real AstraPay
+      // debit is never taken for orders that fail to create. If payment then
+      // fails, the catch rolls these back.
+      if (isInstall) createdIds = await createInstallOrders();
+
       // AstraPay payment — live SNAP debit when enabled, shared mock otherwise.
       const res = await payAstraPaySmart(grandTotal, 'Pembelian sparepart uMotor', { userId });
-
-      // Install mode → create the installation order(s) FIRST. If a booking
-      // insert fails we abort here, before recording payment / debiting the
-      // wallet, so the user is never charged for an order that wasn't created.
-      if (isInstall) await createInstallOrders();
 
       // Record the payment so it shows up as GMV in the Console.
       const { error: payErr } = await supabase.from('payments').insert({
@@ -138,6 +143,17 @@ export default function CartScreen() {
         () => safeBack('/(tabs)/marketplace'),
       );
     } catch (e) {
+      // Payment failed after install order(s) were created → delete them
+      // (booking_parts first; the FK has no ON DELETE CASCADE).
+      if (createdIds.length) {
+        try {
+          await supabase.from('booking_parts').delete().in('booking_id', createdIds);
+          await supabase.from('bookings').delete().in('id', createdIds);
+          qc.invalidateQueries();
+        } catch {
+          // best-effort rollback
+        }
+      }
       notify('Gagal', e instanceof Error ? e.message : 'Pembayaran gagal diproses. Coba lagi.');
     } finally {
       setBusy(false);

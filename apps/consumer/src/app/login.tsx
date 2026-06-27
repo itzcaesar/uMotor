@@ -3,8 +3,9 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@umotor/shared';
+import { colors, DEMO_USER_ID, DEMO_USER_PHONE } from '@umotor/shared';
 import { useResponsive } from '@/components/ui';
+import { ASTRAPAY_LIVE, bindAstraPay } from '@/lib/astrapay';
 import { useSession } from '@/lib/session';
 import { isConfigured } from '@/lib/supabase';
 
@@ -17,15 +18,32 @@ const FEATURES: { icon: keyof typeof Ionicons.glyphMap; title: string; sub: stri
 export default function Login() {
   const login = useSession((s) => s.login);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const r = useResponsive();
 
-  const onLogin = () => {
+  const enterApp = () => {
+    login();
+    router.replace('/(tabs)');
+  };
+
+  const onLogin = async () => {
     setBusy(true);
-    // Fake AstraPay login: 1s loading, then seeded demo session.
-    setTimeout(() => {
-      login();
-      router.replace('/(tabs)');
-    }, 1000);
+    setError(null);
+    // Live: authenticate by binding the real AstraPay wallet (number + OTP 111111
+    // + PIN). Success also links the session for tokenized payments. The demo
+    // data (garage, MotoScore, bills) stays uMotor's — only the wallet is real.
+    if (ASTRAPAY_LIVE) {
+      try {
+        await bindAstraPay(DEMO_USER_ID, { phone: DEMO_USER_PHONE.replace(/\D/g, '') });
+        enterApp();
+      } catch (e) {
+        setBusy(false);
+        setError(e instanceof Error ? e.message : 'Login AstraPay gagal. Coba lagi.');
+      }
+      return;
+    }
+    // Mock build: 1s staged loading, then the seeded demo session.
+    setTimeout(enterApp, 1000);
   };
 
   return (
@@ -63,6 +81,13 @@ export default function Login() {
           </Text>
         )}
 
+        {error && (
+          <View style={styles.errorBox}>
+            <Ionicons name="alert-circle" size={16} color={colors.danger} />
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        )}
+
         {/* CTA */}
         <Pressable style={[styles.button, busy && styles.buttonBusy]} onPress={onLogin} disabled={busy}>
           {busy ? (
@@ -74,6 +99,17 @@ export default function Login() {
             </>
           )}
         </Pressable>
+
+        {ASTRAPAY_LIVE && !error && (
+          <Text style={styles.loginHint}>Login pakai nomor AstraPay-mu · OTP 111111 + PIN</Text>
+        )}
+
+        {error && (
+          <Pressable style={styles.skipBtn} onPress={enterApp} disabled={busy}>
+            <Text style={styles.skipText}>Lewati — masuk mode demo</Text>
+          </Pressable>
+        )}
+
         <Text style={styles.footer}>Prototipe demo · uMotor 2026</Text>
       </View>
     </SafeAreaView>
@@ -144,5 +180,18 @@ const styles = StyleSheet.create({
   },
   buttonBusy: { opacity: 0.7 },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  loginHint: { textAlign: 'center', color: '#98a2b3', fontSize: 12, marginTop: 10 },
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: '#fdecec',
+  },
+  errorText: { color: colors.danger, fontSize: 13, flexShrink: 1 },
+  skipBtn: { alignItems: 'center', paddingVertical: 12, marginTop: 4 },
+  skipText: { color: '#667085', fontSize: 13, fontWeight: '600', textDecorationLine: 'underline' },
   footer: { textAlign: 'center', color: '#98a2b3', fontSize: 12, marginTop: 14 },
 });

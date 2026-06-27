@@ -78,10 +78,11 @@ export default function Confirm() {
   const pay = async () => {
     if (!userId || busy) return;
     setBusy(true);
+    let bookingId: string | null = null;
     try {
-      const res = await payAstraPaySmart(DEPOSIT_AMOUNT, `Deposit booking ${workshop.name}`, {
-        userId,
-      });
+      // Reserve the slot + create the booking FIRST so a real AstraPay debit is
+      // never taken for a slot that just filled up. book_slot raises `slot_full`
+      // before any money moves.
       const { data, error } = await supabase.rpc('book_slot', {
         p_user_id: userId,
         p_motorcycle_id: draft.motorcycleId,
@@ -92,24 +93,42 @@ export default function Confirm() {
       });
       if (error) throw error;
       const booking = data as Booking;
-      // Tag the booking with the AstraPay deposit ref (shown on the receipt);
-      // book_slot sets is_home_service when slot is null, so attach the GPS
-      // address in the same update.
-      const bookingUpdate: Record<string, unknown> = { astrapay_ref: res.ref ?? res.txId };
-      if (draft.isHomeService && draft.homeAddress) bookingUpdate.home_address = draft.homeAddress;
-      await supabase.from('bookings').update(bookingUpdate).eq('id', booking.id);
-      // book_slot inserts the deposit payment server-side — tag it too, so the
-      // Console reconciles against the AstraPay statement.
+      bookingId = booking.id;
+      // book_slot sets is_home_service when slot is null; attach the GPS address.
+      if (draft.isHomeService && draft.homeAddress) {
+        await supabase.from('bookings').update({ home_address: draft.homeAddress }).eq('id', booking.id);
+      }
+
+      // Now take the real deposit. If this throws/cancels, the catch rolls the
+      // booking back (refunds the deposit + frees the slot).
+      const res = await payAstraPaySmart(DEPOSIT_AMOUNT, `Deposit booking ${workshop.name}`, {
+        userId,
+      });
+
+      // Tag the booking + its deposit payment with the AstraPay ref for the receipt
+      // and Console reconciliation.
+      await supabase.from('bookings').update({ astrapay_ref: res.ref ?? res.txId }).eq('id', booking.id);
       await supabase
         .from('payments')
         .update({ astrapay_ref: res.ref ?? res.txId, astrapay_partner_ref: res.partnerRef ?? null })
         .eq('booking_id', booking.id);
+
       qc.invalidateQueries();
       draft.reset();
       router.dismissAll();
       router.replace({ pathname: '/booking/[id]', params: { id: booking.id } });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
+      // Booking created but payment failed/cancelled → cancel it so the slot is
+      // freed and the deposit refunded. No charge ever stands without a booking.
+      if (bookingId) {
+        try {
+          await supabase.rpc('update_booking_status', { p_booking_id: bookingId, p_status: 'cancelled' });
+          qc.invalidateQueries();
+        } catch {
+          // best-effort rollback
+        }
+      }
       if (msg.includes('slot_full')) {
         notify('Slot penuh', 'Slot baru saja terisi. Pilih slot lain.', () => safeBack('/(tabs)'));
       } else {

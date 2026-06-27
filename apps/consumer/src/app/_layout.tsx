@@ -4,6 +4,7 @@ import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, Stack, useRootNavigationState, useSegments, type ErrorBoundaryProps } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { colors } from '@umotor/shared';
+import { AstraPayBrowserHost } from '@/components/AstraPayBrowser';
 import { HeaderBackButton, HeaderCloseButton } from '@/components/ui';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
@@ -178,6 +179,8 @@ export default function RootLayout() {
           }}
         />
       </Stack>
+      {/* In-app AstraPay WebView (binding + payment) — never leaves the app. */}
+      <AstraPayBrowserHost />
     </QueryClientProvider>
   );
 }

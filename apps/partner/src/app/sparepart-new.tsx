@@ -31,7 +31,7 @@ const CATEGORIES: { key: string; label: string; icon: keyof typeof Ionicons.glyp
 ];
 
 // Common models so a new listing can be flagged "cocok untuk motormu" in the
-// consumer app (the seeded demo bikes are Vario 160 + NMAX 155).
+// consumer app (the seeded demo bikes are Aerox 155 + Vario 160).
 const MODELS = [
   'Vario 160',
   'NMAX 155',

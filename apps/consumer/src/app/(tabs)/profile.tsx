@@ -40,13 +40,15 @@ export default function Profile() {
     if (!userId || binding) return;
     setBinding(true);
     try {
-      const ok = await bindAstraPay(userId, {
+      const { walletBound } = await bindAstraPay(userId, {
         phone: d?.user?.phone ?? undefined,
         name: d?.user?.name ?? undefined,
       });
-      if (ok) {
-        qc.invalidateQueries({ queryKey: ['profile', userId] });
+      qc.invalidateQueries({ queryKey: ['profile', userId] });
+      if (walletBound) {
         notify('Akun terhubung', 'Wallet AstraPay siap dipakai — bayar tanpa login ulang.');
+      } else {
+        notify('Belum tertaut', 'Login AstraPay selesai, tapi token wallet belum diterima. Coba lagi.');
       }
     } catch (e) {
       notify('Gagal menghubungkan', e instanceof Error ? e.message : 'Coba lagi.');

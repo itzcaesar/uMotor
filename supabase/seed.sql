@@ -4,17 +4,23 @@
 
 -- ═══ Demo entities (the live flow) ═══════════════════════════════════
 
+-- Demo user = the real AstraPay sandbox account (login binds this number; the
+-- balance mirrors the funded sandbox wallet Rp 1.5jt). Bikes/score/bills below
+-- stay uMotor's own data — AstraPay only holds the wallet.
 insert into users (id, name, phone, astrapay_balance) values
-  ('11111111-1111-1111-1111-111111111111', 'Budi Santoso', '0812-3456-7890', 500000);
+  ('11111111-1111-1111-1111-111111111111', 'Yanuar Fajar Pratama', '0853-4886-1424', 1500000);
 
+-- Bike 1 (first in garage) = Aerox, the hero carrying the maintenance story.
+-- Bike 2 = Vario 160, healthy. UUIDs unchanged from earlier seeds; only the
+-- model each id represents was swapped, so all hero FK wiring stays attached.
 insert into motorcycles (id, user_id, plate, brand, model, year, odometer_km, avg_consumption_kml) values
   ('33333333-3333-3333-3333-333333333333', '11111111-1111-1111-1111-111111111111',
-   'D 4821 BJK', 'Honda', 'Vario 160', 2023, 24000, 45),
+   'D 4821 BJK', 'Yamaha', 'Aerox 155', 2023, 24000, 45),
   ('44444444-4444-4444-4444-444444444444', '11111111-1111-1111-1111-111111111111',
-   'D 2871 KCE', 'Yamaha', 'NMAX 155', 2022, 18500, 40);
+   'D 2871 KCE', 'Honda', 'Vario 160', 2022, 18500, 45);
 
--- Vario: oil at exactly 80% used (2.400/3.000 km) — drives the demo notification.
--- All other components < 50% used.
+-- Aerox (hero, bike 333…): oil at exactly 80% used (2.400/3.000 km) — drives the
+-- demo notification. All other components < 50% used.
 insert into components (motorcycle_id, type, interval_km, last_service_km) values
   ('33333333-3333-3333-3333-333333333333', 'oil',        3000,  21600),
   ('33333333-3333-3333-3333-333333333333', 'tire',       20000, 15000),
@@ -67,7 +73,7 @@ select v.name, v.brand, v.category, v.price, v.install_fee,
        v.models
 from (values
   ('Yamalube 10W-30 0.8L',   'Yamaha',         'oil',       65000,  10000, 'AHASS Bandung Timur', array['Vario 160','NMAX 155','Aerox 155']),
-  ('Filter oli',             'Astra Otoparts', 'filter',    18000,  10000, 'AHASS Bandung Timur', array['Vario 160','NMAX 155','PCX 160']),
+  ('Filter oli',             'Astra Otoparts', 'filter',    18000,  10000, 'AHASS Bandung Timur', array['Vario 160','NMAX 155','Aerox 155','PCX 160']),
   ('AHM Oil MPX-2 0.8L',     'Honda',          'oil',       58000,  10000, 'AHASS Kiaracondong',  array['Vario 160','BeAT','PCX 160']),
   ('Aki GTZ6V',              'GS Astra',       'battery',   235000, 25000, 'AHASS Bandung Timur', array['Vario 160','BeAT']),
   ('Aki GTZ7V',              'GS Astra',       'battery',   265000, 25000, 'AHASS Antapani',      array['NMAX 155','Aerox 155','PCX 160']),
@@ -78,7 +84,7 @@ from (values
   ('Windshield sport',       'Generic',        'accessory', 150000, 20000, 'AHASS Antapani',      array['NMAX 155','Aerox 155','PCX 160'])
 ) as v(name, brand, category, price, install_fee, seller, models);
 
--- MotoScore: Budi at 720 with history
+-- MotoScore: Yanuar at 720 with history
 insert into motoscore (user_id, score) values
   ('11111111-1111-1111-1111-111111111111', 720);
 insert into motoscore_history (user_id, delta, reason, created_at) values
@@ -88,7 +94,7 @@ insert into motoscore_history (user_id, delta, reason, created_at) values
   ('11111111-1111-1111-1111-111111111111',  5, 'Servis sebelum 100% interval', now() - interval '20 days'),
   ('11111111-1111-1111-1111-111111111111', -5, 'Servis terlambat (oli 110%)',  now() - interval '8 days');
 
--- Points: Budi at 2.350
+-- Points: Yanuar at 2.350
 insert into points (user_id, balance) values
   ('11111111-1111-1111-1111-111111111111', 2350);
 insert into points_history (user_id, delta, reason, created_at) values
@@ -104,7 +110,7 @@ insert into bills (user_id, motorcycle_id, type, name, amount, due_date) values
   ('11111111-1111-1111-1111-111111111111', '44444444-4444-4444-4444-444444444444',
    'stnk', 'Pajak STNK D 2871 KCE', 265000, current_date + 95),
   ('11111111-1111-1111-1111-111111111111', '44444444-4444-4444-4444-444444444444',
-   'installment', 'Cicilan NMAX — FIFGROUP', 1150000, current_date + 12);
+   'installment', 'Cicilan Vario — FIFGROUP', 1150000, current_date + 12);
 
 -- The unread maintenance notification matching the 80% oil state
 insert into notifications (user_id, type, title, body) values
@@ -113,7 +119,7 @@ insert into notifications (user_id, type, title, body) values
    'Oli motor D 4821 BJK sudah 80% interval (2.400/3.000 km), masih 600 km lagi. Ganti sekarang atau tunggu?');
 
 -- ═══ Demo user service history (so no consumer screen is ever empty) ════
--- Budi's past services across both bikes — fills bike detail "Riwayat servis",
+-- Yanuar's past services across both bikes — fills bike detail "Riwayat servis",
 -- the Booking tab, and (for jobs at AHASS Bandung Timur) the Partner earnings
 -- list with a real customer name. Dates relative to now() so they never stale.
 -- Does NOT touch components.last_service_km, so the 80%-oil demo state holds.
@@ -176,7 +182,7 @@ where b.user_id = '11111111-1111-1111-1111-111111111111'
   and b.status = 'completed'
   and b.total_amount = 83000;
 
--- Payments for Budi's history (the volume payments block below excludes him).
+-- Payments for Yanuar's history (the volume payments block below excludes him).
 insert into payments (user_id, booking_id, type, amount, created_at)
 select user_id, id, 'deposit', deposit_amount, created_at
 from bookings

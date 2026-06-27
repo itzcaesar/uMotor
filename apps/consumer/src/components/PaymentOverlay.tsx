@@ -8,6 +8,7 @@ import {
   type AstraPayStage,
 } from '@umotor/shared';
 import { payAstraPaySmart } from '@/lib/astrapay';
+import { useAstraPayBrowser } from '@/lib/astrapay-browser';
 
 const STAGE_COPY: Record<AstraPayStage, string> = {
   connecting: 'Menghubungkan ke AstraPay…',
@@ -40,8 +41,12 @@ export function usePayment() {
 /** Branded AstraPay payment overlay. Render once per screen; pass the hook's stage. */
 export function PaymentOverlay({ stage, amount }: { stage: AstraPayStage | null; amount?: number }) {
   const done = stage === 'success';
+  // While the in-app AstraPay WebView is up, it IS the UI — don't stack this
+  // overlay Modal under it (stacked Modals mis-render on iOS). It reappears for
+  // the status-poll phase once the WebView closes.
+  const browserOpen = useAstraPayBrowser((s) => s.request != null);
   return (
-    <Modal visible={stage !== null} transparent animationType="fade" statusBarTranslucent>
+    <Modal visible={stage !== null && !browserOpen} transparent animationType="fade" statusBarTranslucent>
       <View style={styles.backdrop}>
         <View style={styles.sheet}>
           <View style={styles.brandRow}>

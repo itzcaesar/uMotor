@@ -60,20 +60,28 @@ Deno.serve(async (req) => {
   ).toUpperCase();
   const settled = SETTLED.has(statusRaw);
 
-  if (partnerRef) {
+  // Only stamp settlement on a terminal-success notification — never downgrade a
+  // payment the client already recorded as success, and never null an existing
+  // ref. (Acknowledge regardless so AstraPay doesn't hammer retries.)
+  if (partnerRef && settled) {
+    const update: Record<string, unknown> = {
+      astrapay_settled_at: new Date().toISOString(),
+      status: 'settled',
+    };
+    if (ref) update.astrapay_ref = ref;
     const { error } = await db
       .from('payments')
-      .update({
-        astrapay_ref: ref ?? undefined,
-        astrapay_settled_at: settled ? new Date().toISOString() : null,
-        status: settled ? 'settled' : 'pending',
-      })
+      .update(update)
       .eq('astrapay_partner_ref', partnerRef);
-    if (error) {
-      // Acknowledge anyway so AstraPay doesn't hammer retries; we just log.
-      console.error('webhook update failed', error.message);
-    }
-  } else {
+    if (error) console.error('webhook settle update failed', error.message);
+  } else if (partnerRef && ref) {
+    // Non-terminal notification — record the ref, leave status untouched.
+    const { error } = await db
+      .from('payments')
+      .update({ astrapay_ref: ref })
+      .eq('astrapay_partner_ref', partnerRef);
+    if (error) console.error('webhook ref update failed', error.message);
+  } else if (!partnerRef) {
     console.warn('webhook: no partnerReferenceNo in notification', JSON.stringify(body));
   }
 

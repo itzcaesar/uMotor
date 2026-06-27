@@ -1,8 +1,14 @@
 // Fixed UUIDs used by seed.sql and fake login. Must match seed exactly.
 export const DEMO_USER_ID = '11111111-1111-1111-1111-111111111111';
 export const DEMO_WORKSHOP_ID = '22222222-2222-2222-2222-222222222222';
-export const DEMO_BIKE_VARIO_ID = '33333333-3333-3333-3333-333333333333';
-export const DEMO_BIKE_NMAX_ID = '44444444-4444-4444-4444-444444444444';
+// Hero bike (carries the 80%-oil maintenance story) = the Aerox; the Vario is
+// the healthy second bike. The UUIDs are unchanged from earlier seeds — only the
+// model each id represents was swapped, so all hero FK wiring stays intact.
+export const DEMO_BIKE_AEROX_ID = '33333333-3333-3333-3333-333333333333';
+export const DEMO_BIKE_VARIO_ID = '44444444-4444-4444-4444-444444444444';
+
+// Real AstraPay sandbox account (login binds this number; seed mirrors it).
+export const DEMO_USER_PHONE = '0853-4886-1424';
 
 export const DEPOSIT_AMOUNT = 25000; // Rp, per proposal
 export const MOTOSCORE_SERVICE_DELTA = 5;
