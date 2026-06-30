@@ -99,13 +99,20 @@ function pemToDer(pem: string): Uint8Array {
 let privateKeyPromise: Promise<CryptoKey> | null = null;
 function getPrivateKey(): Promise<CryptoKey> {
   if (!privateKeyPromise) {
-    privateKeyPromise = crypto.subtle.importKey(
-      'pkcs8',
-      pemToDer(PRIVATE_KEY_PEM),
-      { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-      false,
-      ['sign'],
-    );
+    privateKeyPromise = crypto.subtle
+      .importKey(
+        'pkcs8',
+        pemToDer(PRIVATE_KEY_PEM),
+        { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+        false,
+        ['sign'],
+      )
+      // Don't cache a rejected import (e.g. a momentarily bad / rotated secret) —
+      // clear it so a later call can retry once the key is fixed.
+      .catch((e) => {
+        privateKeyPromise = null;
+        throw e;
+      });
   }
   return privateKeyPromise;
 }
@@ -158,12 +165,13 @@ function externalId(): string {
 // AstraPay calls
 // ---------------------------------------------------------------------------
 
-// B2B access token, cached until ~30s before expiry.
+// B2B access token, cached until ~30s before expiry. `tokenInFlight` collapses a
+// burst of concurrent callers (e.g. a debit + its first status poll) onto a
+// single access-token request instead of signing/fetching one per call.
 let tokenCache: { token: string; expiresAt: number } | null = null;
+let tokenInFlight: Promise<string> | null = null;
 
-async function getAccessToken(): Promise<string> {
-  if (tokenCache && Date.now() < tokenCache.expiresAt) return tokenCache.token;
-
+async function fetchAccessToken(): Promise<string> {
   const timestamp = snapTimestamp();
   const signature = await signAsymmetric(`${CLIENT_ID}|${timestamp}`);
   const url = `${BASE_URL}/access-token/b2b`;
@@ -190,6 +198,18 @@ async function getAccessToken(): Promise<string> {
     expiresAt: Date.now() + (ttlSec - 30) * 1000,
   };
   return json.accessToken;
+}
+
+function getAccessToken(): Promise<string> {
+  if (tokenCache && Date.now() < tokenCache.expiresAt) {
+    return Promise.resolve(tokenCache.token);
+  }
+  if (!tokenInFlight) {
+    tokenInFlight = fetchAccessToken().finally(() => {
+      tokenInFlight = null;
+    });
+  }
+  return tokenInFlight;
 }
 
 // B2B2C customer token — exchanges the binding authCode for the wallet access
@@ -332,6 +352,10 @@ interface PayPayload {
 }
 
 async function actionPay(p: PayPayload) {
+  const amount = Math.round(Number(p.amount));
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new Error('amount must be a positive integer (Rupiah)');
+  }
   const partnerReferenceNo = p.partnerReferenceNo ?? crypto.randomUUID();
   let customerToken = p.customerToken;
   if (!customerToken && p.authCode) {
@@ -353,7 +377,7 @@ async function actionPay(p: PayPayload) {
     body: {
       partnerReferenceNo,
       merchantId: MERCHANT_ID,
-      amount: snapAmount(p.amount),
+      amount: snapAmount(amount),
       // additionalInfo.description is mandatory for debit payment-host-to-host.
       additionalInfo: { description: p.description || 'Pembayaran uMotor' },
     },

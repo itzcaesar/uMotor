@@ -60,29 +60,59 @@ Deno.serve(async (req) => {
   ).toUpperCase();
   const settled = SETTLED.has(statusRaw);
 
-  // Only stamp settlement on a terminal-success notification — never downgrade a
-  // payment the client already recorded as success, and never null an existing
-  // ref. (Acknowledge regardless so AstraPay doesn't hammer retries.)
-  if (partnerRef && settled) {
+  // Stamp settlement on a terminal-success notification. Matching prefers our
+  // unguessable partnerReferenceNo and falls back to AstraPay's referenceNo —
+  // which covers the race where the client hasn't yet written
+  // `astrapay_partner_ref` onto the payment row. The `astrapay_settled_at is
+  // null` guard makes redelivered notifications idempotent (AstraPay retries
+  // until it gets a 200) and never moves an already-recorded settlement time.
+  if (settled && (partnerRef || ref)) {
     const update: Record<string, unknown> = {
       astrapay_settled_at: new Date().toISOString(),
       status: 'settled',
     };
     if (ref) update.astrapay_ref = ref;
-    const { error } = await db
-      .from('payments')
-      .update(update)
-      .eq('astrapay_partner_ref', partnerRef);
-    if (error) console.error('webhook settle update failed', error.message);
+
+    let matched = 0;
+    if (partnerRef) {
+      const { data, error } = await db
+        .from('payments')
+        .update(update)
+        .eq('astrapay_partner_ref', partnerRef)
+        .is('astrapay_settled_at', null)
+        .select('id');
+      if (error) console.error('webhook settle (partnerRef) failed', error.message);
+      else matched = data?.length ?? 0;
+    }
+    if (matched === 0 && ref) {
+      const { data, error } = await db
+        .from('payments')
+        .update(update)
+        .eq('astrapay_ref', ref)
+        .is('astrapay_settled_at', null)
+        .select('id');
+      if (error) console.error('webhook settle (ref) failed', error.message);
+      else matched = data?.length ?? 0;
+    }
+    if (matched === 0) {
+      // Already settled (a retry) or the row isn't recorded yet — the client
+      // status-poll remains the source of truth, so this is safe to ack.
+      console.warn(
+        'webhook: settlement matched no pending payment',
+        JSON.stringify({ partnerRef, ref, statusRaw }),
+      );
+    }
   } else if (partnerRef && ref) {
-    // Non-terminal notification — record the ref, leave status untouched.
+    // Non-terminal notification — record the ref, leave status/settlement
+    // untouched (and never touch an already-settled row).
     const { error } = await db
       .from('payments')
       .update({ astrapay_ref: ref })
-      .eq('astrapay_partner_ref', partnerRef);
+      .eq('astrapay_partner_ref', partnerRef)
+      .is('astrapay_settled_at', null);
     if (error) console.error('webhook ref update failed', error.message);
-  } else if (!partnerRef) {
-    console.warn('webhook: no partnerReferenceNo in notification', JSON.stringify(body));
+  } else if (!partnerRef && !ref) {
+    console.warn('webhook: no reference in notification', JSON.stringify(body));
   }
 
   // SNAP expects a 200 ack with a responseCode.
