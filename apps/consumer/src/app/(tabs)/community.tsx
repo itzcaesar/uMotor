@@ -1,214 +1,178 @@
-import { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { router } from 'expo-router';
+import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@umotor/shared';
-import { Card, tabletContainer, useResponsive } from '@/components/ui';
-import { confirmDialog, notify } from '@/lib/dialog';
-import { POSTS, TAG_COLOR, useCommunity } from '@/lib/community';
-import { useSession } from '@/lib/session';
-import { supabase } from '@/lib/supabase';
+import * as WebBrowser from 'expo-web-browser';
+import { tabletContainer, umotor, useResponsive } from '@/components/ui';
+import { safeBack } from '@/lib/nav';
+import { fetchNews, formatWhen, type NewsArticle, type NewsCategory } from '@/lib/news';
 
-// Redeemable MotoPoints rewards (demo). Cost is deducted from the live points balance.
-const REWARDS = [
-  { id: 'service', title: 'Diskon servis Rp 25.000', cost: 2000, icon: 'construct' as const },
-  { id: 'cashback', title: 'Cashback AstraPay Rp 10.000', cost: 1000, icon: 'wallet' as const },
-  { id: 'merch', title: 'Voucher merchandise', cost: 5000, icon: 'shirt' as const },
-];
+const backIcon = require('../../../assets/figma/ic-back.png');
 
-export default function Community() {
-  const userId = useSession((s) => s.userId);
-  const qc = useQueryClient();
+const FILTERS: ('Semua' | NewsCategory)[] = ['Semua', 'Otomotif', 'Astra'];
+const catColor = (c: NewsCategory) => (c === 'Astra' ? umotor.primary : umotor.heroMid);
+const catIcon = (c: NewsCategory): keyof typeof Ionicons.glyphMap => (c === 'Astra' ? 'card' : 'speedometer');
 
-  const liked = useCommunity((s) => s.liked);
-  const toggleLike = useCommunity((s) => s.toggleLike);
-  const likeCount = useCommunity((s) => s.likeCount);
-  // Subscribe to addedComments so the feed count updates after a comment is
-  // posted on a detail screen (the tab stays mounted underneath).
-  const addedComments = useCommunity((s) => s.addedComments);
-
-  const [redeeming, setRedeeming] = useState<string | null>(null);
+export default function News() {
+  const insets = useSafeAreaInsets();
   const r = useResponsive();
+  const [filter, setFilter] = useState<'Semua' | NewsCategory>('Semua');
 
-  const loyalty = useQuery({
-    queryKey: ['loyalty', userId],
-    enabled: !!userId,
-    queryFn: async () => {
-      const { data } = await supabase.from('points').select('balance').eq('user_id', userId!).single();
-      return (data as { balance: number } | null)?.balance ?? 0;
-    },
+  const news = useQuery({
+    queryKey: ['news'],
+    queryFn: fetchNews,
+    staleTime: 5 * 60_000,
+    refetchInterval: 10 * 60_000,
   });
 
-  const balance = loyalty.data ?? 0;
+  const now = Date.now();
+  const list = useMemo(() => {
+    const all = news.data ?? [];
+    return filter === 'Semua' ? all : all.filter((a) => a.category === filter);
+  }, [news.data, filter]);
+  const featured = list[0];
+  const rest = list.slice(1);
 
-  const redeem = (reward: (typeof REWARDS)[number]) => {
-    if (!userId || redeeming) return;
-    if (balance < reward.cost) {
-      notify('Poin belum cukup', `Butuh ${reward.cost.toLocaleString('id-ID')} MotoPoints untuk menukar ${reward.title}.`);
-      return;
-    }
-    confirmDialog(
-      'Tukar poin?',
-      `${reward.cost.toLocaleString('id-ID')} MotoPoints untuk "${reward.title}".`,
-      async () => {
-        setRedeeming(reward.id);
-        try {
-          const { error } = await supabase
-            .from('points')
-            .update({ balance: balance - reward.cost })
-            .eq('user_id', userId);
-          if (error) throw error;
-          // Ledger entry so the balance change is auditable like RPC-driven ones.
-          await supabase.from('points_history').insert({
-            user_id: userId,
-            delta: -reward.cost,
-            reason: `Tukar poin: ${reward.title}`,
-          });
-          qc.invalidateQueries({ queryKey: ['loyalty', userId] });
-          notify('Berhasil ditukar', `${reward.title} masuk ke akunmu. Cek di AstraPay.`);
-        } catch (e) {
-          notify('Gagal', e instanceof Error ? e.message : 'Coba lagi.');
-        } finally {
-          setRedeeming(null);
-        }
-      },
-      { confirmLabel: 'Tukar' },
-    );
+  const open = (a: NewsArticle) => {
+    if (!a.link) return;
+    // In-app browser (Custom Tab / SFSafariVC) — the rider stays inside uMotor.
+    WebBrowser.openBrowserAsync(a.link, { toolbarColor: '#ffffff', controlsColor: umotor.primary }).catch(() => {});
   };
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, tabletContainer(r)]}>
-      {/* Loyalty header (real MotoPoints balance) */}
-      <Card style={styles.loyalty}>
-        <View style={styles.loyaltyTop}>
-          <View>
-            <Text style={styles.loyaltyLabel}>MotoPoints kamu</Text>
-            <Text style={styles.loyaltyValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-              {loyalty.data != null ? balance.toLocaleString('id-ID') : '—'}
-            </Text>
-          </View>
-          <Ionicons name="star" size={36} color="#f5a623" />
+    <View style={styles.screen}>
+      <View style={[styles.header, { paddingTop: insets.top + 18 }]}>
+        <Pressable onPress={() => safeBack('/(tabs)')} hitSlop={10} style={{ width: 25, height: 25 }} accessibilityLabel="Kembali">
+          <Image source={backIcon} style={{ width: 25, height: 25 }} contentFit="contain" tintColor={umotor.heroDark} />
+        </Pressable>
+        <Text style={styles.headerTitle}>News</Text>
+      </View>
+
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={[styles.content, tabletContainer(r), { paddingBottom: insets.bottom + 100 }]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={news.isRefetching} onRefresh={() => news.refetch()} />}
+      >
+        <Text style={styles.lead}>Berita otomotif & Astra terbaru</Text>
+
+        {/* category chips */}
+        <View style={styles.chips}>
+          {FILTERS.map((f) => {
+            const active = filter === f;
+            return (
+              <Pressable key={f} onPress={() => setFilter(f)} style={[styles.chip, active ? styles.chipActive : styles.chipIdle]}>
+                <Text style={[styles.chipText, active ? styles.chipTextActive : styles.chipTextIdle]}>{f}</Text>
+              </Pressable>
+            );
+          })}
         </View>
-        <Text style={styles.loyaltyHint}>
-          Tukar poin jadi diskon servis, cashback AstraPay, atau merchandise.
-        </Text>
-      </Card>
 
-      {/* Rewards redemption */}
-      <Text style={styles.sectionTitle}>Tukar poin</Text>
-      {REWARDS.map((r) => {
-        const affordable = balance >= r.cost;
-        return (
-          <Card key={r.id} style={styles.rewardRow}>
-            <View style={[styles.rewardIcon, !affordable && styles.rewardIconLocked]}>
-              <Ionicons name={r.icon} size={20} color={affordable ? colors.primary : '#98a2b3'} />
-            </View>
-            <View style={styles.rewardInfo}>
-              <Text style={styles.rewardTitle}>{r.title}</Text>
-              <Text style={styles.rewardCost}>{r.cost.toLocaleString('id-ID')} poin</Text>
-            </View>
-            <Pressable
-              style={[styles.redeemBtn, (!affordable || redeeming === r.id) && styles.redeemBtnDisabled]}
-              onPress={() => redeem(r)}
-              disabled={!affordable || !!redeeming}
-            >
-              <Text style={[styles.redeemText, !affordable && styles.redeemTextDisabled]}>
-                {redeeming === r.id ? '…' : 'Tukar'}
-              </Text>
+        {news.isLoading ? (
+          <View style={styles.center}>
+            <ActivityIndicator color={umotor.primary} />
+            <Text style={styles.centerText}>Memuat berita…</Text>
+          </View>
+        ) : news.isError ? (
+          <View style={styles.center}>
+            <Ionicons name="cloud-offline-outline" size={36} color={umotor.faint} />
+            <Text style={styles.centerText}>Gagal memuat berita.</Text>
+            <Pressable style={styles.retryBtn} onPress={() => news.refetch()}>
+              <Text style={styles.retryText}>Coba lagi</Text>
             </Pressable>
-          </Card>
-        );
-      })}
+          </View>
+        ) : (
+          <>
+            {/* featured */}
+            {featured && (
+              <Pressable onPress={() => open(featured)}>
+                <View style={styles.featured}>
+                  {featured.image ? (
+                    <Image source={{ uri: featured.image }} style={styles.featuredImg} contentFit="cover" transition={200} />
+                  ) : (
+                    <View style={[styles.featuredImg, { backgroundColor: catColor(featured.category), alignItems: 'center', justifyContent: 'center' }]}>
+                      <Ionicons name={catIcon(featured.category)} size={52} color="rgba(255,255,255,0.9)" />
+                    </View>
+                  )}
+                  <View style={[styles.catPill, { backgroundColor: catColor(featured.category) }]}>
+                    <Text style={styles.catPillText}>{featured.category}</Text>
+                  </View>
+                  <View style={styles.featuredBody}>
+                    <Text style={styles.featuredTitle} numberOfLines={3}>{featured.title}</Text>
+                    {!!featured.snippet && <Text style={styles.featuredSnippet} numberOfLines={2}>{featured.snippet}</Text>}
+                    <Text style={styles.meta}>{featured.source}{featured.publishedAt ? ` · ${formatWhen(featured.publishedAt, now)}` : ''}</Text>
+                  </View>
+                </View>
+              </Pressable>
+            )}
 
-      <Text style={styles.sectionTitle}>Feed terbaru</Text>
-      {POSTS.map((p) => {
-        const isLiked = liked[p.id];
-        return (
-          <Pressable key={p.id} onPress={() => router.push(`/community/post/${p.id}`)}>
-            <Card style={styles.post}>
-              <View style={styles.postHead}>
-                <Text style={styles.postAuthor}>{p.author}</Text>
-                <View style={[styles.tag, { backgroundColor: (TAG_COLOR[p.tag] ?? colors.primary) + '22' }]}>
-                  <Text style={[styles.tagText, { color: TAG_COLOR[p.tag] ?? colors.primary }]}>
-                    {p.tag}
-                  </Text>
+            {/* list */}
+            {rest.map((a) => (
+              <Pressable key={a.id} onPress={() => open(a)}>
+                <View style={styles.card}>
+                  {a.image ? (
+                    <Image source={{ uri: a.image }} style={styles.thumb} contentFit="cover" transition={200} />
+                  ) : (
+                    <View style={[styles.thumb, { backgroundColor: catColor(a.category) + '1f', alignItems: 'center', justifyContent: 'center' }]}>
+                      <Ionicons name={catIcon(a.category)} size={24} color={catColor(a.category)} />
+                    </View>
+                  )}
+                  <View style={{ flex: 1, gap: 3 }}>
+                    <View style={[styles.tag, { backgroundColor: catColor(a.category) + '22', alignSelf: 'flex-start' }]}>
+                      <Text style={[styles.tagText, { color: catColor(a.category) }]}>{a.category}</Text>
+                    </View>
+                    <Text style={styles.cardTitle} numberOfLines={3}>{a.title}</Text>
+                    <Text style={styles.meta}>{a.source}{a.publishedAt ? ` · ${formatWhen(a.publishedAt, now)}` : ''}</Text>
+                  </View>
                 </View>
-              </View>
-              <Text style={styles.postTime}>{p.time}</Text>
-              <Text style={styles.postTitle}>{p.title}</Text>
-              <Text style={styles.postBody} numberOfLines={2}>
-                {p.preview}
-              </Text>
-              <View style={styles.postFooter}>
-                <Pressable style={styles.metric} onPress={() => toggleLike(p.id)} hitSlop={6}>
-                  <Ionicons
-                    name={isLiked ? 'heart' : 'heart-outline'}
-                    size={16}
-                    color={isLiked ? colors.danger : '#667085'}
-                  />
-                  <Text style={[styles.metricText, isLiked && styles.metricTextActive]}>
-                    {likeCount(p)}
-                  </Text>
-                </Pressable>
-                <View style={styles.metric}>
-                  <Ionicons name="chatbubble-outline" size={15} color="#667085" />
-                  <Text style={styles.metricText}>
-                    {p.comments.length + (addedComments[p.id]?.length ?? 0)}
-                  </Text>
-                </View>
-                <Text style={styles.readMore}>Baca →</Text>
-              </View>
-            </Card>
-          </Pressable>
-        );
-      })}
-    </ScrollView>
+              </Pressable>
+            ))}
+
+            {list.length === 0 && <Text style={styles.empty}>Belum ada berita untuk kategori ini.</Text>}
+            <Text style={styles.footnote}>Berita dari Google News · ketuk untuk baca di dalam aplikasi</Text>
+          </>
+        )}
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: '#f3f6fb' },
-  content: { padding: 16, gap: 12, paddingBottom: 32 },
-  loyalty: { backgroundColor: '#0b1727', borderColor: '#0b1727', gap: 8 },
-  loyaltyTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  loyaltyLabel: { color: '#9aa7b8', fontSize: 13, fontWeight: '600' },
-  loyaltyValue: { color: '#fff', fontSize: 34, fontWeight: '800' },
-  loyaltyHint: { color: '#9aa7b8', fontSize: 12, lineHeight: 17 },
-  sectionTitle: { fontSize: 15, fontWeight: '800', color: '#0b1727', marginTop: 4 },
-  rewardRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  rewardIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#eef4fd',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rewardIconLocked: { backgroundColor: '#eef1f6' },
-  rewardInfo: { flex: 1, gap: 2 },
-  rewardTitle: { fontWeight: '700', color: '#0b1727', fontSize: 14 },
-  rewardCost: { color: '#667085', fontSize: 12 },
-  redeemBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  redeemBtnDisabled: { backgroundColor: '#eef1f6' },
-  redeemText: { color: '#fff', fontWeight: '700', fontSize: 12 },
-  redeemTextDisabled: { color: '#98a2b3' },
-  post: { gap: 4 },
-  postHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  postAuthor: { fontWeight: '700', color: '#0b1727', fontSize: 13 },
+  screen: { flex: 1, backgroundColor: umotor.bg },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 13, paddingHorizontal: 17, paddingBottom: 8 },
+  headerTitle: { fontSize: 18, fontWeight: '500', color: umotor.heroDark },
+  content: { paddingHorizontal: 16, paddingTop: 2, gap: 12 },
+  lead: { color: umotor.sub, fontSize: 13 },
+
+  chips: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  chip: { height: 30, borderRadius: 30, paddingHorizontal: 16, justifyContent: 'center' },
+  chipActive: { backgroundColor: umotor.heroDark },
+  chipIdle: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#d9e2f0' },
+  chipText: { fontSize: 11, fontWeight: '600' },
+  chipTextActive: { color: '#fff' },
+  chipTextIdle: { color: 'rgba(28,78,147,0.67)' },
+
+  featured: { backgroundColor: '#fff', borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(0,0,0,0.06)' },
+  featuredImg: { width: '100%', height: 168 },
+  catPill: { position: 'absolute', top: 12, left: 12, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
+  catPillText: { color: '#fff', fontSize: 11, fontWeight: '800' },
+  featuredBody: { padding: 16, gap: 5 },
+  featuredTitle: { color: umotor.ink, fontSize: 17, fontWeight: '800', lineHeight: 22 },
+  featuredSnippet: { color: '#475467', fontSize: 13, lineHeight: 19 },
+
+  card: { flexDirection: 'row', gap: 12, backgroundColor: '#fff', borderRadius: 14, padding: 12, borderWidth: 1, borderColor: 'rgba(0,0,0,0.06)' },
+  thumb: { width: 76, height: 76, borderRadius: 12 },
   tag: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
-  tagText: { fontSize: 11, fontWeight: '700' },
-  postTime: { color: '#98a2b3', fontSize: 11 },
-  postTitle: { fontWeight: '800', color: '#0b1727', fontSize: 15, marginTop: 2 },
-  postBody: { color: '#475467', fontSize: 13, lineHeight: 19, marginTop: 2 },
-  postFooter: { flexDirection: 'row', gap: 18, marginTop: 8, alignItems: 'center' },
-  metric: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  metricText: { color: '#667085', fontSize: 13, fontWeight: '600' },
-  metricTextActive: { color: colors.danger },
-  readMore: { marginLeft: 'auto', color: colors.primary, fontWeight: '700', fontSize: 12 },
+  tagText: { fontSize: 10, fontWeight: '700' },
+  cardTitle: { color: umotor.ink, fontSize: 14, fontWeight: '700', lineHeight: 18 },
+  meta: { color: umotor.faint, fontSize: 11, marginTop: 1 },
+
+  center: { alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 60 },
+  centerText: { color: umotor.sub, fontSize: 13 },
+  retryBtn: { marginTop: 4, backgroundColor: umotor.primary, borderRadius: 10, paddingHorizontal: 20, paddingVertical: 10 },
+  retryText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  empty: { textAlign: 'center', color: umotor.faint, marginTop: 40 },
+  footnote: { textAlign: 'center', color: umotor.faint, fontSize: 11, marginTop: 8 },
 });

@@ -3,7 +3,6 @@ import { useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import {
-  colors,
   formatDistance,
   formatDuration,
   formatSpeed,
@@ -12,7 +11,7 @@ import {
   type Ride,
   type RideEvent,
 } from '@umotor/shared';
-import { Card, tabletContainer, useResponsive } from '@/components/ui';
+import { tabletContainer, umotor, useResponsive } from '@/components/ui';
 import { RouteMap } from '@/components/RouteMap';
 import { supabase } from '@/lib/supabase';
 
@@ -43,7 +42,7 @@ export default function RideDetail() {
   if (q.isLoading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color={colors.primary} />
+        <ActivityIndicator color={umotor.primary} />
       </View>
     );
   }
@@ -84,48 +83,48 @@ export default function RideDetail() {
         <Hero label="Durasi" value={formatDuration(ride.duration_s)} />
       </View>
 
-      <Card style={styles.statsCard}>
+      <View style={[styles.card, styles.statsCard]}>
         <Stat icon="speedometer-outline" label="Kecepatan rata-rata" value={formatSpeed(ride.avg_kmh)} />
         <Stat icon="flash-outline" label="Kecepatan maks" value={formatSpeed(ride.max_kmh)} />
         <Stat
           icon="leaf-outline"
           label="Skor eco"
           value={ride.eco_score != null ? `${ride.eco_score}/100` : '—'}
-          tone={colors.accent}
+          tone={'#00a86b'}
         />
         <Stat icon="alert-circle-outline" label="Kejadian agresif" value={String(ride.harsh_events)} />
-      </Card>
+      </View>
 
       {points > 0 && (
-        <Card style={styles.rewardCard}>
-          <Ionicons name="gift" size={22} color={colors.accent} />
+        <View style={[styles.card, styles.rewardCard]}>
+          <Ionicons name="gift" size={22} color={'#00a86b'} />
           <View style={{ flex: 1 }}>
             <Text style={styles.rewardTitle}>+{points} MotoPoin</Text>
             <Text style={styles.rewardSub}>
               Odometer +{Math.round(km)} km · jadwal servis ikut diperbarui
             </Text>
           </View>
-        </Card>
+        </View>
       )}
 
-      <Card style={styles.ecoCard}>
-        <Ionicons name="cloud-outline" size={20} color={colors.primary} />
+      <View style={[styles.card, styles.ecoCard]}>
+        <Ionicons name="cloud-outline" size={20} color={umotor.primary} />
         <Text style={styles.ecoText}>
           Hemat ±{co2.toLocaleString('id-ID', { maximumFractionDigits: 1 })} kg CO₂ dibanding mobil
         </Text>
-      </Card>
+      </View>
 
       {events.length > 0 && (
         <>
           <Text style={styles.sectionTitle}>Catatan berkendara</Text>
           {events.map((e) => (
-            <Card key={e.id} style={styles.eventRow}>
-              <Ionicons name="warning-outline" size={16} color={colors.warning} />
+            <View key={e.id} style={[styles.card, styles.eventRow]}>
+              <Ionicons name="warning-outline" size={16} color={'#e6b13f'} />
               <Text style={styles.eventText}>{RIDE_EVENT_LABELS[e.type] ?? e.type}</Text>
               <Text style={styles.eventTime}>
                 {new Date(e.ts).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
               </Text>
-            </Card>
+            </View>
           ))}
         </>
       )}
@@ -135,10 +134,10 @@ export default function RideDetail() {
 
 function Hero({ label, value }: { label: string; value: string }) {
   return (
-    <Card style={styles.hero}>
+    <View style={[styles.card, styles.hero]}>
       <Text style={styles.heroValue}>{value}</Text>
       <Text style={styles.heroLabel}>{label}</Text>
-    </Card>
+    </View>
   );
 }
 
@@ -155,7 +154,7 @@ function Stat({
 }) {
   return (
     <View style={styles.stat}>
-      <Ionicons name={icon} size={18} color={tone ?? '#667085'} />
+      <Ionicons name={icon} size={18} color={tone ?? umotor.primary} />
       <Text style={styles.statLabel}>{label}</Text>
       <Text style={[styles.statValue, tone ? { color: tone } : null]}>{value}</Text>
     </View>
@@ -163,8 +162,8 @@ function Stat({
 }
 
 function Badge({ text, tone }: { text: string; tone: 'ok' | 'muted' | 'danger' }) {
-  const bg = tone === 'ok' ? '#e7f7ef' : tone === 'danger' ? '#fdeaea' : '#eef1f6';
-  const fg = tone === 'ok' ? colors.accent : tone === 'danger' ? colors.danger : '#667085';
+  const bg = tone === 'ok' ? '#e7f7ef' : tone === 'danger' ? '#fdeaea' : umotor.tile;
+  const fg = tone === 'ok' ? '#00a86b' : tone === 'danger' ? '#e0543f' : umotor.primary;
   return (
     <View style={[styles.badge, { backgroundColor: bg }]}>
       <Text style={[styles.badgeText, { color: fg }]}>{text}</Text>
@@ -173,29 +172,30 @@ function Badge({ text, tone }: { text: string; tone: 'ok' | 'muted' | 'danger' }
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: '#f3f6fb' },
+  scroll: { flex: 1, backgroundColor: umotor.bg },
   content: { padding: 16, gap: 12, paddingBottom: 40 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f3f6fb' },
-  empty: { color: '#98a2b3' },
-  date: { color: '#475467', fontWeight: '600', fontSize: 13 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: umotor.bg },
+  empty: { color: umotor.faint },
+  date: { color: umotor.sub, fontWeight: '600', fontSize: 13 },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   badge: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
   badgeText: { fontSize: 12, fontWeight: '700' },
+  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: 'rgba(0,0,0,0.06)' },
   heroRow: { flexDirection: 'row', gap: 12 },
   hero: { flex: 1, alignItems: 'center', gap: 2, paddingVertical: 18 },
-  heroValue: { fontSize: 24, fontWeight: '800', color: '#0b1727' },
-  heroLabel: { color: '#98a2b3', fontSize: 12 },
+  heroValue: { fontSize: 24, fontWeight: '800', color: umotor.heroDark },
+  heroLabel: { color: umotor.faint, fontSize: 12 },
   statsCard: { gap: 0 },
   stat: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
-  statLabel: { flex: 1, color: '#475467', fontSize: 14 },
-  statValue: { fontWeight: '800', color: '#0b1727', fontSize: 15 },
+  statLabel: { flex: 1, color: umotor.sub, fontSize: 14 },
+  statValue: { fontWeight: '800', color: umotor.heroDark, fontSize: 15 },
   rewardCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#f0fbf5' },
-  rewardTitle: { fontWeight: '800', color: colors.accent, fontSize: 16 },
+  rewardTitle: { fontWeight: '800', color: '#00a86b', fontSize: 16 },
   rewardSub: { color: '#5b7a6b', fontSize: 12, marginTop: 2 },
   ecoCard: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  ecoText: { color: '#475467', fontSize: 13, flex: 1 },
-  sectionTitle: { fontSize: 15, fontWeight: '800', color: '#0b1727', marginTop: 8 },
+  ecoText: { color: umotor.sub, fontSize: 13, flex: 1 },
+  sectionTitle: { fontSize: 15, fontWeight: '800', color: umotor.heroDark, marginTop: 8 },
   eventRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12 },
-  eventText: { flex: 1, color: '#0b1727', fontSize: 14 },
-  eventTime: { color: '#98a2b3', fontSize: 12 },
+  eventText: { flex: 1, color: umotor.ink, fontSize: 14 },
+  eventTime: { color: umotor.faint, fontSize: 12 },
 });

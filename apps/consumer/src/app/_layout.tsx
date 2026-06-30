@@ -1,13 +1,64 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppState, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router, Stack, useRootNavigationState, useSegments, type ErrorBoundaryProps } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
+import { Ionicons } from '@expo/vector-icons';
+import * as SplashScreen from 'expo-splash-screen';
+import { Asset } from 'expo-asset';
 import { colors } from '@umotor/shared';
+
+// ── Global SF Pro Display (the Figma typeface) ─────────────────────────────
+// Only 3 upright weights ship (Regular/Medium/Bold); custom fonts don't
+// synthesize, so map each fontWeight to the nearest face and inject it into
+// every <Text>/<TextInput> render once.
+const SF: Record<string, string> = {
+  '100': 'SFProDisplay-Regular',
+  '200': 'SFProDisplay-Regular',
+  '300': 'SFProDisplay-Regular',
+  '400': 'SFProDisplay-Regular',
+  normal: 'SFProDisplay-Regular',
+  '500': 'SFProDisplay-Medium',
+  '600': 'SFProDisplay-Medium',
+  '700': 'SFProDisplay-Bold',
+  bold: 'SFProDisplay-Bold',
+  '800': 'SFProDisplay-Bold',
+  '900': 'SFProDisplay-Bold',
+};
+let fontsPatched = false;
+function patchTextFonts() {
+  if (fontsPatched) return;
+  fontsPatched = true;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const Comp of [Text, TextInput] as unknown as Array<{ render?: (...a: any[]) => any }>) {
+    const orig = Comp.render;
+    if (typeof orig !== 'function') continue;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    Comp.render = function (props: any, ref: any) {
+      const flat = (StyleSheet.flatten(props?.style) ?? {}) as { fontWeight?: string | number };
+      const fam = SF[String(flat.fontWeight ?? '400')] ?? 'SFProDisplay-Regular';
+      return orig.call(this, { ...props, style: [{ fontFamily: fam }, props?.style] }, ref);
+    };
+  }
+}
+patchTextFonts();
 import { AstraPayBrowserHost } from '@/components/AstraPayBrowser';
 import { HeaderBackButton, HeaderCloseButton } from '@/components/ui';
+import { CRITICAL_IMAGES } from '@/lib/preload';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
+
+// Keep the native splash up until fonts, the Ionicons glyph font, and the
+// first-paint images are all ready — so the first frame is fully painted
+// (text + icons + tiles) with no progressive pop-in. Bounded below so a slow
+// asset can never hang startup.
+SplashScreen.preventAutoHideAsync().catch(() => {});
+try {
+  SplashScreen.setOptions({ duration: 220, fade: true });
+} catch {
+  // setOptions is a no-op on platforms that don't support it.
+}
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 10_000 } },
@@ -83,6 +134,43 @@ export default function RootLayout() {
   useAuthGuard();
   useNotificationsLive();
 
+  const [fontsLoaded] = useFonts({
+    'SFProDisplay-Regular': require('../../assets/fonts/SFProDisplay-Regular.otf'),
+    'SFProDisplay-Medium': require('../../assets/fonts/SFProDisplay-Medium.otf'),
+    'SFProDisplay-Bold': require('../../assets/fonts/SFProDisplay-Bold.otf'),
+    // Preload the Ionicons glyph font so every icon paints on the first frame
+    // instead of popping in once the font streams in on demand.
+    ...Ionicons.font,
+  });
+
+  // Warm the decode cache for first-paint images. Bounded by a 2s timeout so a
+  // slow/failed asset can never hold the splash hostage.
+  const [assetsReady, setAssetsReady] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    const finish = () => {
+      if (!cancelled) setAssetsReady(true);
+    };
+    const timer = setTimeout(finish, 2000);
+    Asset.loadAsync(CRITICAL_IMAGES)
+      .catch(() => {})
+      .finally(() => {
+        clearTimeout(timer);
+        finish();
+      });
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, []);
+
+  const appReady = fontsLoaded && assetsReady;
+
+  // Reveal the painted UI and fade the splash only once everything is ready.
+  useEffect(() => {
+    if (appReady) SplashScreen.hideAsync().catch(() => {});
+  }, [appReady]);
+
   // React Query refetches stale queries when the app returns to foreground —
   // needs explicit AppState wiring on React Native.
   useEffect(() => {
@@ -92,58 +180,27 @@ export default function RootLayout() {
     return () => sub.remove();
   }, []);
 
+  if (!appReady) return null;
+
   return (
     <QueryClientProvider client={queryClient}>
       <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#f3f6fb' } }}>
         <Stack.Screen name="cart" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="booking/new" options={{ headerShown: true, title: 'Pilih Bengkel' }} />
-        <Stack.Screen
-          name="booking/workshop/[id]"
-          options={{ headerShown: true, title: 'Pilih Slot' }}
-        />
-        <Stack.Screen
-          name="booking/confirm"
-          options={{ headerShown: true, title: 'Konfirmasi Booking' }}
-        />
-        <Stack.Screen
-          name="booking/[id]"
-          options={{
-            headerShown: true,
-            title: 'Status Booking',
-            headerLeft: () => <HeaderBackButton fallback="/(tabs)/bookings" />,
-          }}
-        />
-        <Stack.Screen name="motoscore" options={{ headerShown: true, title: 'MotoScore' }} />
-        <Stack.Screen
-          name="finance/bill/[id]"
-          options={{
-            headerShown: true,
-            title: 'Detail Tagihan',
-            headerLeft: () => <HeaderBackButton fallback="/(tabs)/finance" />,
-          }}
-        />
-        <Stack.Screen
-          name="community/[id]"
-          options={{
-            headerShown: true,
-            title: 'Komunitas',
-            headerLeft: () => <HeaderBackButton fallback="/(tabs)/community" />,
-          }}
-        />
-        <Stack.Screen
-          name="community/post/[id]"
-          options={{
-            headerShown: true,
-            title: 'Postingan',
-            headerLeft: () => <HeaderBackButton fallback="/(tabs)/community" />,
-          }}
-        />
+        <Stack.Screen name="booking/new" options={{ headerShown: false }} />
+        <Stack.Screen name="booking/workshop/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="booking/confirm" options={{ headerShown: false }} />
+        <Stack.Screen name="booking/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="motoscore" options={{ headerShown: false }} />
+        <Stack.Screen name="finance/bill/[id]" options={{ headerShown: false }} />
         <Stack.Screen
           name="notifications"
           options={{ headerShown: true, title: 'Notifikasi' }}
         />
-        <Stack.Screen name="bike/[id]" options={{ headerShown: true, title: 'Detail Motor' }} />
+        <Stack.Screen name="bike/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="bbm" options={{ headerShown: false }} />
+        <Stack.Screen name="bengkel" options={{ headerShown: false }} />
+        <Stack.Screen name="marketplace" options={{ headerShown: false }} />
         <Stack.Screen
           name="ride/index"
           options={{
@@ -198,7 +255,7 @@ const styles = StyleSheet.create({
   errBody: { color: '#667085', textAlign: 'center', fontSize: 13 },
   errBtn: {
     marginTop: 12,
-    backgroundColor: colors.primary,
+    backgroundColor: '#0e4da4',
     borderRadius: 12,
     paddingHorizontal: 24,
     paddingVertical: 13,

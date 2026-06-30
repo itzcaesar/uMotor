@@ -1,61 +1,26 @@
 import { Tabs } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { colors } from '@umotor/shared';
-import { CartHeaderButton, NotificationsHeaderButton } from '@/components/ui';
+import { TabBar } from '@/components/TabBar';
 
+/**
+ * Figma 5-tab layout: Beranda · Garasi · Finance · Notification · Akun.
+ * Sparepart (marketplace), Booking, and Komunitas stay reachable as routes
+ * (entered from Beranda tiles / Akun) but are hidden from the tab bar.
+ */
 export default function TabsLayout() {
   return (
     <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: colors.primary,
-        headerStyle: { backgroundColor: '#fff' },
-        headerTitleStyle: { fontWeight: '700' },
-      }}
+      tabBar={(props) => <TabBar {...(props as unknown as Parameters<typeof TabBar>[0])} />}
+      screenOptions={{ headerShown: false }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Garasi',
-          headerRight: () => <NotificationsHeaderButton />,
-          tabBarIcon: ({ color, size }) => <Ionicons name="bicycle" color={color} size={size} />,
-        }}
-      />
-      <Tabs.Screen
-        name="marketplace"
-        options={{
-          title: 'Sparepart',
-          headerRight: () => <CartHeaderButton />,
-          tabBarIcon: ({ color, size }) => <Ionicons name="pricetags" color={color} size={size} />,
-        }}
-      />
-      <Tabs.Screen
-        name="bookings"
-        options={{
-          title: 'Booking',
-          tabBarIcon: ({ color, size }) => <Ionicons name="calendar" color={color} size={size} />,
-        }}
-      />
-      <Tabs.Screen
-        name="finance"
-        options={{
-          title: 'Finance',
-          tabBarIcon: ({ color, size }) => <Ionicons name="wallet" color={color} size={size} />,
-        }}
-      />
-      <Tabs.Screen
-        name="community"
-        options={{
-          title: 'Komunitas',
-          tabBarIcon: ({ color, size }) => <Ionicons name="people" color={color} size={size} />,
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profil',
-          tabBarIcon: ({ color, size }) => <Ionicons name="person" color={color} size={size} />,
-        }}
-      />
+      <Tabs.Screen name="index" options={{ title: 'Beranda' }} />
+      <Tabs.Screen name="garasi" options={{ title: 'Garasi' }} />
+      <Tabs.Screen name="finance" options={{ title: 'Finance' }} />
+      <Tabs.Screen name="notifications" options={{ title: 'Notification' }} />
+      <Tabs.Screen name="profile" options={{ title: 'Akun' }} />
+
+      {/* Reachable routes that are not tabs */}
+      <Tabs.Screen name="bookings" options={{ href: null }} />
+      <Tabs.Screen name="community" options={{ href: null }} />
     </Tabs>
   );
 }

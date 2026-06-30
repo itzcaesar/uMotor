@@ -40,7 +40,7 @@ export default function AstraPayReturn() {
 
   return (
     <View style={styles.screen}>
-      <ActivityIndicator size="large" color={colors.primary} />
+      <ActivityIndicator size="large" color={'#0e4da4'} />
       <Text style={styles.text}>Kembali ke aplikasi…</Text>
     </View>
   );

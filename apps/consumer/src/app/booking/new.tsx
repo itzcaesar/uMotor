@@ -1,19 +1,25 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, formatRp, type Workshop } from '@umotor/shared';
-import { Card, tabletContainer, useResponsive } from '@/components/ui';
+import { formatRp, type Workshop } from '@umotor/shared';
+import { Illustration } from '@/components/Illustration';
+import { umotor, useResponsive } from '@/components/ui';
 import { useDraft } from '@/lib/draft';
+import { safeBack } from '@/lib/nav';
 import { supabase } from '@/lib/supabase';
 
-type Filter = 'all' | 'ahass' | 'home';
+const garageIcon = require('../../../assets/figma/ic-garage.png');
+const backIcon = require('../../../assets/figma/ic-back.png');
 
+type Filter = 'all' | 'ahass' | 'home';
 const FILTERS: { key: Filter; label: string }[] = [
   { key: 'all', label: 'Semua' },
   { key: 'ahass', label: 'AHASS' },
-  { key: 'home', label: 'Home service' },
+  { key: 'home', label: 'Home Services' },
 ];
 
 export default function WorkshopList() {
@@ -22,8 +28,13 @@ export default function WorkshopList() {
   const setWorkshop = useDraft((s) => s.setWorkshop);
   const [filter, setFilter] = useState<Filter>('all');
   const r = useResponsive();
+  const insets = useSafeAreaInsets();
+  // On web `useWindowDimensions` is the full browser window, so a width-relative
+  // hero scales wildly (huge on desktop, a bare peak on a narrow viewport). Clamp
+  // it to a phone-like band and center it so the mountain always reads as the same
+  // flat ridge backdrop — its peak stays clipped by the 104px art window.
+  const heroW = Math.min(Math.max(r.width, 380), 460);
 
-  // Entering this screen starts a fresh draft for the chosen bike.
   useEffect(() => {
     if (bike) setBike(bike, service ?? null);
   }, [bike, service, setBike]);
@@ -31,7 +42,6 @@ export default function WorkshopList() {
   const workshops = useQuery({
     queryKey: ['workshops'],
     queryFn: async (): Promise<Workshop[]> => {
-      // Featured = the 5 seeded with full profiles (distance, prices). Volume rows stay in Console.
       const { data, error } = await supabase
         .from('workshops')
         .select('*')
@@ -52,119 +62,136 @@ export default function WorkshopList() {
   }, [workshops.data, filter]);
 
   return (
-    <FlatList
-      key={r.columns}
-      numColumns={r.columns}
-      columnWrapperStyle={r.columns > 1 ? styles.columns : undefined}
-      style={styles.list}
-      contentContainerStyle={[styles.content, tabletContainer(r)]}
-      data={list}
-      keyExtractor={(w) => w.id}
-      ListHeaderComponent={
-        <View style={styles.chips}>
-          {FILTERS.map((f) => (
+    <View style={styles.screen}>
+      {/* header */}
+      <View style={[styles.header, { paddingTop: insets.top + 18 }]}>
+        <Pressable onPress={() => safeBack('/(tabs)')} hitSlop={10} style={{ width: 25, height: 25 }} accessibilityLabel="Kembali">
+          <Image source={backIcon} style={{ width: 25, height: 25 }} contentFit="contain" tintColor={umotor.heroDark} />
+        </Pressable>
+        <Text style={styles.headerTitle}>Pilih Bengkel</Text>
+      </View>
+
+      {/* decorative scene: light mountain + flanking trees + biker */}
+      <View style={styles.art} pointerEvents="none">
+        <View style={[styles.artScene, { width: heroW }]}>
+          <View style={{ position: 'absolute', left: -20, right: -20, bottom: 0 }}>
+            <Illustration name="mountainBengkel" width={heroW + 40} />
+          </View>
+          <View style={{ position: 'absolute', left: -56, bottom: -8 }}>
+            <Illustration name="treeBengkel" width={150} />
+          </View>
+          <View style={{ position: 'absolute', right: -56, bottom: -8, transform: [{ scaleX: -1 }] }}>
+            <Illustration name="treeBengkel" width={150} />
+          </View>
+          <View style={{ position: 'absolute', left: 0, right: 0, bottom: 4, alignItems: 'center' }}>
+            <Illustration name="biker" width={132} />
+          </View>
+        </View>
+      </View>
+
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }} showsVerticalScrollIndicator={false}>
+        <View style={[styles.panel, r.isTablet && { maxWidth: 760, width: '100%', alignSelf: 'center' }]}>
+          {/* filter chips */}
+          <View style={styles.chipsRow}>
+            <View style={styles.chips}>
+              {FILTERS.map((f) => {
+                const active = filter === f.key;
+                return (
+                  <Pressable key={f.key} onPress={() => setFilter(f.key)} style={[styles.chip, active ? styles.chipActive : styles.chipIdle]}>
+                    <Text style={[styles.chipText, active ? styles.chipTextActive : styles.chipTextIdle]}>{f.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Ionicons name="options-outline" size={18} color={umotor.heroDark} />
+          </View>
+
+          {list.map((item) => (
             <Pressable
-              key={f.key}
-              onPress={() => setFilter(f.key)}
-              style={[styles.chip, filter === f.key && styles.chipActive]}
+              key={item.id}
+              style={styles.card}
+              onPress={() => {
+                setWorkshop(item);
+                router.push({ pathname: '/booking/workshop/[id]', params: { id: item.id } });
+              }}
             >
-              <Text style={[styles.chipText, filter === f.key && styles.chipTextActive]}>
-                {f.label}
-              </Text>
+              <View style={styles.navyBox}>
+                <Image source={garageIcon} style={{ width: 44, height: 44 }} contentFit="contain" tintColor="#fff" />
+              </View>
+              <View style={styles.info}>
+                <View style={styles.nameRow}>
+                  <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
+                  <Ionicons name="star" size={11} color="rgba(0,0,0,0.35)" />
+                  <Text style={styles.rating}>{Number(item.rating).toFixed(1)}</Text>
+                </View>
+                <View style={styles.metaRow}>
+                  {item.type === 'ahass' && (
+                    <View style={styles.ahassPill}><Text style={styles.ahassText}>AHASS</Text></View>
+                  )}
+                  {item.type !== 'ahass' && item.home_service && (
+                    <View style={styles.ahassPill}><Text style={styles.ahassText}>Home Services</Text></View>
+                  )}
+                  <Text style={styles.meta}>{item.distance_km} km</Text>
+                  <Text style={styles.meta}>{formatRp(item.price_estimate_min ?? 0)} - {formatRp(item.price_estimate_max ?? 0)}</Text>
+                </View>
+                <View style={styles.slotRow}>
+                  <Ionicons name="time-outline" size={11} color="#00a86b" />
+                  <Text style={styles.slotText}>Slot tersedia hari ini, Booking sekarang!</Text>
+                </View>
+              </View>
+
+              {/* Booking pill bottom-right */}
+              <View style={styles.bookPill}>
+                <Text style={styles.bookText}>Booking</Text>
+                <View style={styles.bookArrow}>
+                  <Ionicons name="chevron-forward" size={9} color={umotor.heroDark} />
+                </View>
+              </View>
             </Pressable>
           ))}
+
+          {list.length === 0 && (
+            <Text style={styles.empty}>{workshops.isLoading ? 'Memuat bengkel…' : 'Tidak ada bengkel untuk filter ini.'}</Text>
+          )}
         </View>
-      }
-      renderItem={({ item }) => (
-        <Pressable
-          style={styles.cell}
-          onPress={() => {
-            setWorkshop(item);
-            router.push({ pathname: '/booking/workshop/[id]', params: { id: item.id } });
-          }}
-        >
-          <Card style={[styles.row, styles.cellCard]}>
-            <View style={styles.thumb}>
-              <Ionicons name="build" size={24} color={colors.primary} />
-            </View>
-            <View style={styles.info}>
-              <View style={styles.nameRow}>
-                <Text style={styles.name} numberOfLines={1}>
-                  {item.name}
-                </Text>
-                {item.type === 'ahass' && (
-                  <View style={styles.ahass}>
-                    <Text style={styles.ahassText}>AHASS</Text>
-                  </View>
-                )}
-              </View>
-              <Text style={styles.meta}>
-                ★ {Number(item.rating).toFixed(1)} · {item.distance_km} km ·{' '}
-                {formatRp(item.price_estimate_min ?? 0)}–{formatRp(item.price_estimate_max ?? 0)}
-              </Text>
-              <View style={styles.tags}>
-                <View style={styles.slotTag}>
-                  <Ionicons name="time-outline" size={12} color={colors.accent} />
-                  <Text style={styles.slotTagText}>Slot tersedia hari ini</Text>
-                </View>
-                {item.home_service && (
-                  <View style={styles.homeTag}>
-                    <Ionicons name="home-outline" size={12} color={colors.primary} />
-                    <Text style={styles.homeTagText}>Home service</Text>
-                  </View>
-                )}
-              </View>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#98a2b3" />
-          </Card>
-        </Pressable>
-      )}
-      ListEmptyComponent={
-        <Text style={styles.empty}>
-          {workshops.isLoading ? 'Memuat bengkel…' : 'Tidak ada bengkel untuk filter ini.'}
-        </Text>
-      }
-    />
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  list: { flex: 1, backgroundColor: '#f3f6fb' },
-  content: { padding: 16, gap: 12 },
-  columns: { gap: 12 },
-  cell: { flex: 1 },
-  cellCard: { flex: 1 },
-  chips: { flexDirection: 'row', gap: 8, marginBottom: 4 },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 999,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#e5e9f0',
-  },
-  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { color: '#667085', fontWeight: '600', fontSize: 13 },
+  screen: { flex: 1, backgroundColor: umotor.bg },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 13, paddingHorizontal: 17, paddingBottom: 6 },
+  headerTitle: { fontSize: 18, fontWeight: '500', color: umotor.heroDark },
+  art: { height: 104, overflow: 'hidden' },
+  artScene: { height: 104, alignSelf: 'center', position: 'relative' },
+
+  panel: { backgroundColor: '#d3e6ff', borderTopLeftRadius: 21, borderTopRightRadius: 21, borderWidth: 0.5, borderColor: umotor.heroDark, minHeight: 600, paddingHorizontal: 17, paddingTop: 16, gap: 12 },
+  chipsRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  chips: { flexDirection: 'row', gap: 10, flex: 1, flexWrap: 'wrap' },
+  chip: { height: 26, borderRadius: 30, paddingHorizontal: 14, justifyContent: 'center' },
+  chipActive: { backgroundColor: umotor.heroDark },
+  chipIdle: { backgroundColor: '#fff' },
+  chipText: { fontSize: 10, fontWeight: '600' },
   chipTextActive: { color: '#fff' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  thumb: {
-    width: 52,
-    height: 52,
-    borderRadius: 12,
-    backgroundColor: '#eef4fd',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  info: { flex: 1, gap: 3 },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  name: { fontSize: 15, fontWeight: '700', color: '#0b1727', flexShrink: 1 },
-  ahass: { backgroundColor: '#dc2626', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
-  ahassText: { color: '#fff', fontSize: 10, fontWeight: '800' },
-  meta: { fontSize: 12, color: '#667085' },
-  tags: { flexDirection: 'row', gap: 8, marginTop: 2 },
-  slotTag: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  slotTagText: { fontSize: 11, color: colors.accent, fontWeight: '600' },
-  homeTag: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  homeTagText: { fontSize: 11, color: colors.primary, fontWeight: '600' },
-  empty: { textAlign: 'center', color: '#98a2b3', marginTop: 48 },
+  chipTextIdle: { color: 'rgba(28,78,147,0.67)' },
+
+  card: { flexDirection: 'row', backgroundColor: '#f6faff', borderRadius: 18, borderWidth: 0.5, borderColor: 'rgba(0,0,0,0.12)', minHeight: 82, alignItems: 'stretch', overflow: 'hidden' },
+  navyBox: { width: 86, backgroundColor: umotor.heroDark, alignItems: 'center', justifyContent: 'center' },
+  info: { flex: 1, paddingHorizontal: 12, paddingVertical: 11, justifyContent: 'center', gap: 6 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  name: { fontSize: 18, fontWeight: '500', color: '#000', flexShrink: 1 },
+  rating: { fontSize: 10, fontWeight: '800', color: 'rgba(0,0,0,0.35)' },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  ahassPill: { backgroundColor: '#c5dbf9', borderRadius: 15, paddingHorizontal: 6, paddingVertical: 2 },
+  ahassText: { color: umotor.heroDark, fontSize: 7, fontWeight: '600' },
+  meta: { fontSize: 8, fontWeight: '500', color: 'rgba(0,0,0,0.35)' },
+  slotRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  slotText: { fontSize: 8, color: '#00a86b' },
+
+  bookPill: { position: 'absolute', right: 10, bottom: 10, flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#2b6fd0', borderRadius: 999, paddingLeft: 12, paddingRight: 4, paddingVertical: 4 },
+  bookText: { color: '#fff', fontSize: 9, fontWeight: '600' },
+  bookArrow: { width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+
+  empty: { textAlign: 'center', color: umotor.sub, marginTop: 40 },
 });

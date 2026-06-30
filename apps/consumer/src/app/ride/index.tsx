@@ -12,7 +12,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import {
   ACTIVITY_LABELS,
-  colors,
   ecoScore,
   formatDistance,
   formatDuration,
@@ -20,7 +19,7 @@ import {
   type Motorcycle,
   type Ride,
 } from '@umotor/shared';
-import { Card, tabletContainer, useResponsive } from '@/components/ui';
+import { tabletContainer, umotor, useResponsive } from '@/components/ui';
 import { RouteMap } from '@/components/RouteMap';
 import { useRide } from '@/lib/tracking';
 import { useSession } from '@/lib/session';
@@ -88,7 +87,7 @@ export default function RideHome() {
       {active ? (
         <LivePanel onStop={onStop} saving={status === 'saving'} />
       ) : (
-        <Card style={styles.startCard}>
+        <View style={[styles.card, styles.startCard]}>
           <Text style={styles.h2}>Mulai melacak perjalanan</Text>
           <Text style={styles.sub}>
             GPS merekam rute, jarak, dan kecepatan. Jarak divalidasi di server —
@@ -124,17 +123,17 @@ export default function RideHome() {
             disabled={!selected}
             onPress={() => selected && startSimulated(selected.id)}
           >
-            <Ionicons name="play-circle-outline" size={18} color={colors.primary} />
+            <Ionicons name="play-circle-outline" size={18} color={umotor.primary} />
             <Text style={styles.btnGhostText}>Simulasi ride (demo)</Text>
           </Pressable>
 
           {error && <Text style={styles.err}>{error}</Text>}
-        </Card>
+        </View>
       )}
 
       <Text style={styles.sectionTitle}>Riwayat ride</Text>
       {rides.isLoading ? (
-        <ActivityIndicator color={colors.primary} style={{ marginTop: 24 }} />
+        <ActivityIndicator color={umotor.primary} style={{ marginTop: 24 }} />
       ) : rides.data && rides.data.length > 0 ? (
         rides.data.map((it) => <RideRow key={it.id} ride={it} />)
       ) : (
@@ -148,7 +147,7 @@ function LivePanel({ onStop, saving }: { onStop: () => void; saving: boolean }) 
   const { distanceM, durationS, speedKmh, maxKmh, activity, harshEvents, path, source, flagged } =
     useRide();
   return (
-    <Card style={styles.live}>
+    <View style={[styles.card, styles.live]}>
       <View style={styles.liveHead}>
         <View style={styles.liveDot} />
         <Text style={styles.liveLabel}>
@@ -182,7 +181,7 @@ function LivePanel({ onStop, saving }: { onStop: () => void; saving: boolean }) 
           </>
         )}
       </Pressable>
-    </Card>
+    </View>
   );
 }
 
@@ -204,12 +203,12 @@ function RideRow({ ride }: { ride: Ride }) {
   const discarded = ride.status === 'discarded';
   return (
     <Pressable onPress={() => router.push({ pathname: '/ride/[id]', params: { id: ride.id } })}>
-      <Card style={styles.row}>
+      <View style={[styles.card, styles.row]}>
         <View style={[styles.rowIcon, discarded && { backgroundColor: '#f1f3f7' }]}>
           <Ionicons
             name={ride.flagged ? 'warning' : 'navigate'}
             size={18}
-            color={ride.flagged ? colors.danger : colors.primary}
+            color={ride.flagged ? '#e0543f' : umotor.primary}
           />
         </View>
         <View style={{ flex: 1 }}>
@@ -228,29 +227,30 @@ function RideRow({ ride }: { ride: Ride }) {
             <Text style={styles.ecoText}>eco {ride.eco_score}</Text>
           </View>
         )}
-        <Ionicons name="chevron-forward" size={18} color="#c2cad6" />
-      </Card>
+        <Ionicons name="chevron-forward" size={18} color={umotor.faint} />
+      </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: '#f3f6fb' },
+  scroll: { flex: 1, backgroundColor: umotor.bg },
   content: { padding: 16, gap: 12, paddingBottom: 40 },
-  h2: { fontSize: 18, fontWeight: '800', color: '#0b1727' },
-  sub: { color: '#667085', fontSize: 13, lineHeight: 18, marginTop: 4 },
+  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: 'rgba(0,0,0,0.06)' },
+  h2: { fontSize: 18, fontWeight: '800', color: umotor.heroDark },
+  sub: { color: umotor.sub, fontSize: 13, lineHeight: 18, marginTop: 4 },
   startCard: { gap: 12 },
   bikeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   bikeChip: {
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: '#dbe3ef',
+    borderColor: umotor.line,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    backgroundColor: '#f3f6fb',
+    backgroundColor: umotor.bg,
   },
-  bikeChipOn: { backgroundColor: colors.primary, borderColor: colors.primary },
-  bikeChipText: { color: '#475467', fontWeight: '700', fontSize: 13 },
+  bikeChipOn: { backgroundColor: umotor.primary, borderColor: umotor.primary },
+  bikeChipText: { color: umotor.sub, fontWeight: '700', fontSize: 13 },
   bikeChipTextOn: { color: '#fff' },
   btn: {
     flexDirection: 'row',
@@ -260,38 +260,38 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 14,
   },
-  btnPrimary: { backgroundColor: colors.primary },
+  btnPrimary: { backgroundColor: umotor.primary },
   btnPrimaryText: { color: '#fff', fontWeight: '800', fontSize: 15 },
-  btnGhost: { borderWidth: 1.5, borderColor: '#cfdcf2', backgroundColor: '#fff' },
-  btnGhostText: { color: colors.primary, fontWeight: '800', fontSize: 15 },
-  btnStop: { backgroundColor: colors.danger, marginTop: 14 },
+  btnGhost: { borderWidth: 1.5, borderColor: umotor.tileBorder, backgroundColor: '#fff' },
+  btnGhostText: { color: umotor.primary, fontWeight: '800', fontSize: 15 },
+  btnStop: { backgroundColor: '#e0543f', marginTop: 14 },
   btnDisabled: { opacity: 0.5 },
-  err: { color: colors.danger, fontSize: 13, textAlign: 'center' },
+  err: { color: '#e0543f', fontSize: 13, textAlign: 'center' },
   // live
   live: { gap: 0 },
   liveHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  liveDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.danger },
-  liveLabel: { fontWeight: '800', color: colors.danger, fontSize: 12, letterSpacing: 0.5 },
+  liveDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#e0543f' },
+  liveLabel: { fontWeight: '800', color: '#e0543f', fontSize: 12, letterSpacing: 0.5 },
   statGrid: { flexDirection: 'row', gap: 12, marginTop: 14 },
   stat: { flex: 1, gap: 2 },
-  statLabel: { color: '#98a2b3', fontSize: 12 },
-  statValue: { color: '#0b1727', fontWeight: '800', fontSize: 16 },
+  statLabel: { color: umotor.faint, fontSize: 12 },
+  statValue: { color: umotor.ink, fontWeight: '800', fontSize: 16 },
   statValueBig: { fontSize: 26 },
-  warn: { color: colors.danger, fontSize: 12, marginTop: 12, fontWeight: '600' },
+  warn: { color: '#e0543f', fontSize: 12, marginTop: 12, fontWeight: '600' },
   // history
-  sectionTitle: { fontSize: 15, fontWeight: '800', color: '#0b1727', marginTop: 8 },
-  empty: { textAlign: 'center', color: '#98a2b3', marginTop: 24 },
+  sectionTitle: { fontSize: 15, fontWeight: '800', color: umotor.heroDark, marginTop: 8 },
+  empty: { textAlign: 'center', color: umotor.faint, marginTop: 24 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   rowIcon: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: '#eef4fd',
+    backgroundColor: umotor.tile,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  rowTitle: { fontWeight: '700', color: '#0b1727', fontSize: 14 },
-  rowSub: { color: '#667085', fontSize: 12, marginTop: 2 },
+  rowTitle: { fontWeight: '700', color: umotor.ink, fontSize: 14 },
+  rowSub: { color: umotor.sub, fontSize: 12, marginTop: 2 },
   ecoPill: { backgroundColor: '#e7f7ef', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
-  ecoText: { color: colors.accent, fontWeight: '800', fontSize: 12 },
+  ecoText: { color: '#00a86b', fontWeight: '800', fontSize: 12 },
 });

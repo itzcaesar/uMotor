@@ -1,17 +1,10 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import {
-  colors,
   DEPOSIT_AMOUNT,
   formatRp,
   type Booking,
@@ -20,12 +13,14 @@ import {
 } from '@umotor/shared';
 import { payAstraPaySmart } from '@/lib/astrapay';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Card, tabletContainer, useResponsive } from '@/components/ui';
+import { tabletContainer, umotor, useResponsive } from '@/components/ui';
 import { notify } from '@/lib/dialog';
 import { safeBack } from '@/lib/nav';
 import { selectDraftTotal, useDraft } from '@/lib/draft';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
+
+const backIcon = require('../../../assets/figma/ic-back.png');
 
 // Service code → sparepart categories worth recommending (PRD 01 §4.6).
 const SERVICE_PARTS: Record<string, string[]> = {
@@ -66,9 +61,23 @@ export default function Confirm() {
     },
   });
 
+  const headerBar = (
+    <View style={[styles.header, { paddingTop: insets.top + 18 }]}>
+      <Pressable onPress={() => safeBack('/(tabs)')} hitSlop={10} style={{ width: 25, height: 25 }} accessibilityLabel="Kembali">
+        <Image source={backIcon} style={{ width: 25, height: 25 }} contentFit="contain" tintColor={umotor.heroDark} />
+      </Pressable>
+      <Text style={styles.headerTitle}>Detail Servis</Text>
+    </View>
+  );
+
   const { workshop, service, slot } = draft;
   if (!workshop || !service || (!slot && !draft.isHomeService)) {
-    return <Text style={styles.loading}>Draft booking tidak lengkap — mulai dari Garasi.</Text>;
+    return (
+      <View style={styles.screen}>
+        {headerBar}
+        <Text style={styles.loading}>Draft booking tidak lengkap — mulai dari Garasi.</Text>
+      </View>
+    );
   }
 
   const homeFee = draft.isHomeService ? (workshop.home_service_fee ?? 0) : 0;
@@ -141,8 +150,9 @@ export default function Confirm() {
 
   return (
     <View style={styles.screen}>
-      <ScrollView contentContainerStyle={[styles.content, tabletContainer(r)]}>
-        <Card>
+      {headerBar}
+      <ScrollView contentContainerStyle={[styles.content, tabletContainer(r)]} showsVerticalScrollIndicator={false}>
+        <View style={styles.card}>
           <Text style={styles.sectionLabel}>Ringkasan booking</Text>
           <Row icon="bicycle" text={bike ? `${bike.brand} ${bike.model} · ${bike.plate}` : '…'} />
           <Row icon="build" text={workshop.name} />
@@ -161,12 +171,12 @@ export default function Confirm() {
             />
           )}
           <Row icon="construct" text={`${service.name} · ${service.duration_min} menit`} />
-        </Card>
+        </View>
 
         {(info.data?.recommended.length ?? 0) > 0 && (
-          <Card style={styles.recCard}>
+          <View style={[styles.card, styles.recCard]}>
             <View style={styles.recHeader}>
-              <Ionicons name="sparkles" size={16} color={colors.accent} />
+              <Ionicons name="sparkles" size={16} color={umotor.primary} />
               <Text style={styles.recTitle}>Rekomendasi untuk {bike?.model ?? 'motormu'}</Text>
             </View>
             {info.data!.recommended.map((p) => {
@@ -183,7 +193,7 @@ export default function Confirm() {
                   <Ionicons
                     name={selected ? 'checkbox' : 'square-outline'}
                     size={22}
-                    color={selected ? colors.primary : '#98a2b3'}
+                    color={selected ? umotor.primary : umotor.faint}
                   />
                   <Text style={styles.recName}>{p.name}</Text>
                   <Text style={styles.recPrice}>{formatRp(p.price)}</Text>
@@ -191,10 +201,10 @@ export default function Confirm() {
               );
             })}
             <Text style={styles.recHint}>Dipasang langsung saat servis di bengkel.</Text>
-          </Card>
+          </View>
         )}
 
-        <Card>
+        <View style={styles.card}>
           <Text style={styles.sectionLabel}>Pembayaran</Text>
           <View style={styles.payRow}>
             <Text style={styles.payLabel}>Estimasi total servis</Text>
@@ -215,12 +225,12 @@ export default function Confirm() {
             <Text style={styles.payValue}>{formatRp(Math.max(0, total - DEPOSIT_AMOUNT))}</Text>
           </View>
           <View style={styles.balanceRow}>
-            <Ionicons name="wallet-outline" size={16} color={colors.primary} />
+            <Ionicons name="wallet-outline" size={16} color={umotor.primary} />
             <Text style={styles.balanceText}>
               Saldo AstraPay: {info.data ? formatRp(info.data.balance) : '…'}
             </Text>
           </View>
-        </Card>
+        </View>
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: Math.max(28, insets.bottom + 8) }, tabletContainer(r)]}>
@@ -241,53 +251,40 @@ export default function Confirm() {
 function Row({ icon, text }: { icon: keyof typeof Ionicons.glyphMap; text: string }) {
   return (
     <View style={styles.row}>
-      <Ionicons name={icon} size={16} color={colors.primary} />
+      <View style={styles.rowIcon}>
+        <Ionicons name={icon} size={15} color={umotor.heroDark} />
+      </View>
       <Text style={styles.rowText}>{text}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#f3f6fb' },
+  screen: { flex: 1, backgroundColor: umotor.bg },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 13, paddingHorizontal: 17, paddingBottom: 8 },
+  headerTitle: { fontSize: 18, fontWeight: '500', color: umotor.heroDark },
   content: { padding: 16, gap: 12 },
-  loading: { textAlign: 'center', color: '#98a2b3', marginTop: 48 },
-  sectionLabel: { fontWeight: '800', color: '#0b1727', marginBottom: 8, fontSize: 15 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 5 },
-  rowText: { color: '#344054', flexShrink: 1, fontSize: 14 },
-  recCard: { backgroundColor: '#f0fbf6', borderColor: '#cdeadd' },
+  loading: { textAlign: 'center', color: umotor.faint, marginTop: 48 },
+  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: 'rgba(0,0,0,0.06)' },
+  sectionLabel: { fontWeight: '800', color: umotor.heroDark, marginBottom: 8, fontSize: 15 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
+  rowIcon: { width: 30, height: 30, borderRadius: 9, backgroundColor: umotor.tile, alignItems: 'center', justifyContent: 'center' },
+  rowText: { color: umotor.ink, flexShrink: 1, fontSize: 14 },
+  recCard: { backgroundColor: '#eef5ff', borderColor: umotor.tileBorder },
   recHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
-  recTitle: { fontWeight: '800', color: '#0b1727', fontSize: 14 },
+  recTitle: { fontWeight: '800', color: umotor.heroDark, fontSize: 14 },
   recRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 7 },
-  recName: { flex: 1, color: '#0b1727', fontWeight: '600', fontSize: 14 },
-  recPrice: { color: colors.primary, fontWeight: '800', fontSize: 14 },
-  recHint: { color: '#4a7763', fontSize: 11, marginTop: 4 },
+  recName: { flex: 1, color: umotor.ink, fontWeight: '600', fontSize: 14 },
+  recPrice: { color: umotor.primary, fontWeight: '800', fontSize: 14 },
+  recHint: { color: umotor.sub, fontSize: 11, marginTop: 4 },
   payRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
-  payLabel: { color: '#667085', fontSize: 13 },
-  payValue: { fontWeight: '700', color: '#0b1727', fontSize: 13 },
-  payDeposit: { fontWeight: '800', color: colors.primary, fontSize: 13 },
-  balanceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#eef1f6',
-  },
-  balanceText: { color: '#667085', fontSize: 13 },
-  footer: {
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#e5e9f0',
-    padding: 16,
-    paddingBottom: 28,
-  },
-  payBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
+  payLabel: { color: umotor.sub, fontSize: 13 },
+  payValue: { fontWeight: '700', color: umotor.ink, fontSize: 13 },
+  payDeposit: { fontWeight: '800', color: umotor.primary, fontSize: 13 },
+  balanceRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: umotor.line },
+  balanceText: { color: umotor.sub, fontSize: 13 },
+  footer: { backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: umotor.line, padding: 16, paddingBottom: 28, boxShadow: '0px -3px 11px rgba(0,0,0,0.06)' },
+  payBtn: { backgroundColor: umotor.primary, borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
   payBtnBusy: { opacity: 0.7 },
   payBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });

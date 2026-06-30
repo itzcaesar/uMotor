@@ -9,10 +9,10 @@ import {
 } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, formatRp, INSTALL_SERVICE_CODE } from '@umotor/shared';
+import { formatRp, INSTALL_SERVICE_CODE } from '@umotor/shared';
 import { payAstraPaySmart } from '@/lib/astrapay';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Card, QtyStepper, tabletContainer, useResponsive } from '@/components/ui';
+import { QtyStepper, tabletContainer, umotor, useResponsive } from '@/components/ui';
 import { selectInstallFee, selectTotal, useCart, type CartItem, type DeliveryMode } from '@/lib/cart';
 import { notify } from '@/lib/dialog';
 import { safeBack } from '@/lib/nav';
@@ -140,7 +140,7 @@ export default function CartScreen() {
           ? 'Pesanan pemasangan dibuat di bengkel penjual. Tunjukkan QR di aplikasi saat datang.'
           : 'Sparepart akan dikirim ke alamatmu. Bukti pembayaran tersimpan di AstraPay.') +
           `\n\nRef AstraPay: ${res.ref ?? res.txId}`,
-        () => safeBack('/(tabs)/marketplace'),
+        () => safeBack('/marketplace'),
       );
     } catch (e) {
       // Payment failed after install order(s) were created → delete them
@@ -164,12 +164,12 @@ export default function CartScreen() {
     <View style={styles.screen}>
       <View style={styles.topbar}>
         <Pressable
-          onPress={() => safeBack('/(tabs)/marketplace')}
+          onPress={() => safeBack('/marketplace')}
           hitSlop={8}
           accessibilityRole="button"
           accessibilityLabel="Tutup keranjang"
         >
-          <Ionicons name="close" size={26} color="#0b1727" />
+          <Ionicons name="close" size={26} color={umotor.ink} />
         </Pressable>
         <Text style={styles.title}>Keranjang</Text>
         <View style={{ width: 26 }} />
@@ -177,9 +177,9 @@ export default function CartScreen() {
 
       {empty ? (
         <View style={styles.emptyWrap}>
-          <Ionicons name="cart-outline" size={48} color="#cbd5e1" />
+          <Ionicons name="cart-outline" size={48} color={umotor.faint} />
           <Text style={styles.empty}>Keranjang masih kosong.</Text>
-          <Pressable style={styles.browseBtn} onPress={() => safeBack('/(tabs)/marketplace')}>
+          <Pressable style={styles.browseBtn} onPress={() => safeBack('/marketplace')}>
             <Text style={styles.browseText}>Lihat sparepart</Text>
           </Pressable>
         </View>
@@ -187,7 +187,7 @@ export default function CartScreen() {
         <>
           <ScrollView contentContainerStyle={[styles.content, tabletContainer(r)]}>
             {cartItems.map(({ part, qty }) => (
-              <Card key={part.id} style={styles.item}>
+              <View key={part.id} style={[styles.card, styles.item]}>
                 <View style={styles.itemTop}>
                   <View style={styles.itemInfo}>
                     <Text style={styles.itemName}>{part.name}</Text>
@@ -208,14 +208,14 @@ export default function CartScreen() {
                     accessibilityRole="button"
                     accessibilityLabel={`Hapus ${part.name} dari keranjang`}
                   >
-                    <Ionicons name="trash-outline" size={20} color={colors.danger} />
+                    <Ionicons name="trash-outline" size={20} color={'#e0543f'} />
                   </Pressable>
                 </View>
                 <View style={styles.itemBottom}>
                   <QtyStepper qty={qty} onChange={(n) => setQty(part.id, n)} />
                   <Text style={styles.itemSubtotal}>{formatRp(part.price * qty)}</Text>
                 </View>
-              </Card>
+              </View>
             ))}
 
             <Text style={styles.sectionTitle}>Metode pengiriman</Text>
@@ -231,7 +231,7 @@ export default function CartScreen() {
                     <Ionicons
                       name={d.icon}
                       size={20}
-                      color={active ? colors.primary : '#667085'}
+                      color={active ? umotor.primary : umotor.sub}
                     />
                     <Text style={[styles.deliveryLabel, active && styles.deliveryLabelActive]}>
                       {d.label}
@@ -277,7 +277,7 @@ export default function CartScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#f3f6fb' },
+  screen: { flex: 1, backgroundColor: umotor.bg },
   topbar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -287,21 +287,22 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e9f0',
+    borderBottomColor: umotor.line,
   },
-  title: { fontSize: 17, fontWeight: '800', color: '#0b1727' },
+  title: { fontSize: 17, fontWeight: '800', color: umotor.heroDark },
   content: { padding: 16, gap: 12 },
+  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: 'rgba(0,0,0,0.06)' },
   item: { gap: 12 },
   itemTop: { flexDirection: 'row', justifyContent: 'space-between' },
   itemInfo: { flex: 1, gap: 2 },
-  itemName: { fontSize: 15, fontWeight: '700', color: '#0b1727' },
-  itemMeta: { fontSize: 12, color: '#667085' },
-  itemSeller: { fontSize: 12, color: '#667085', marginTop: 2 },
-  itemPrice: { marginTop: 2, color: '#667085', fontSize: 13 },
-  itemInstall: { marginTop: 1, color: colors.accent, fontSize: 12, fontWeight: '600' },
+  itemName: { fontSize: 15, fontWeight: '700', color: umotor.ink },
+  itemMeta: { fontSize: 12, color: umotor.sub },
+  itemSeller: { fontSize: 12, color: umotor.sub, marginTop: 2 },
+  itemPrice: { marginTop: 2, color: umotor.sub, fontSize: 13 },
+  itemInstall: { marginTop: 1, color: '#00a86b', fontSize: 12, fontWeight: '600' },
   itemBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  itemSubtotal: { fontWeight: '800', color: colors.primary, fontSize: 15 },
-  sectionTitle: { fontSize: 15, fontWeight: '800', color: '#0b1727', marginTop: 4 },
+  itemSubtotal: { fontWeight: '800', color: umotor.primary, fontSize: 15 },
+  sectionTitle: { fontSize: 15, fontWeight: '800', color: umotor.heroDark, marginTop: 4 },
   deliveryRow: { flexDirection: 'row', gap: 10 },
   deliveryCard: {
     flex: 1,
@@ -310,28 +311,28 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 4,
     borderWidth: 1.5,
-    borderColor: '#e5e9f0',
+    borderColor: umotor.line,
   },
-  deliveryActive: { borderColor: colors.primary, backgroundColor: '#eef4fd' },
-  deliveryLabel: { fontWeight: '700', color: '#667085', fontSize: 13 },
-  deliveryLabelActive: { color: colors.primary },
-  deliveryHint: { fontSize: 11, color: '#98a2b3' },
+  deliveryActive: { borderColor: umotor.primary, backgroundColor: umotor.tile },
+  deliveryLabel: { fontWeight: '700', color: umotor.sub, fontSize: 13 },
+  deliveryLabelActive: { color: umotor.primary },
+  deliveryHint: { fontSize: 11, color: umotor.faint },
   footer: {
     backgroundColor: '#fff',
     borderTopWidth: 1,
-    borderTopColor: '#e5e9f0',
+    borderTopColor: umotor.line,
     padding: 16,
     paddingBottom: 28,
     gap: 12,
   },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   breakdownRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  breakdownLabel: { color: '#667085', fontSize: 14 },
-  breakdownValue: { color: '#0b1727', fontSize: 14, fontWeight: '600' },
-  totalLabel: { color: '#667085', fontWeight: '600' },
-  totalValue: { fontSize: 22, fontWeight: '800', color: '#0b1727' },
+  breakdownLabel: { color: umotor.sub, fontSize: 14 },
+  breakdownValue: { color: umotor.ink, fontSize: 14, fontWeight: '600' },
+  totalLabel: { color: umotor.sub, fontWeight: '600' },
+  totalValue: { fontSize: 22, fontWeight: '800', color: umotor.ink },
   payBtn: {
-    backgroundColor: colors.primary,
+    backgroundColor: umotor.primary,
     borderRadius: 14,
     paddingVertical: 16,
     alignItems: 'center',
@@ -339,10 +340,10 @@ const styles = StyleSheet.create({
   payBtnBusy: { opacity: 0.7 },
   payText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  empty: { color: '#98a2b3', fontSize: 15 },
+  empty: { color: umotor.faint, fontSize: 15 },
   browseBtn: {
     marginTop: 8,
-    backgroundColor: colors.primary,
+    backgroundColor: umotor.primary,
     borderRadius: 12,
     paddingHorizontal: 20,
     paddingVertical: 12,

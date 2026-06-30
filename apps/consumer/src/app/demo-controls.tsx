@@ -48,7 +48,7 @@ export default function DemoControls() {
     <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
       <Card style={styles.statusCard}>
         <View style={styles.statusRow}>
-          <View style={[styles.dot, { backgroundColor: isConfigured ? colors.accent : colors.danger }]} />
+          <View style={[styles.dot, { backgroundColor: isConfigured ? '#00a86b' : '#e0543f' }]} />
           <Text style={styles.statusText}>
             Supabase: {isConfigured ? 'terkonfigurasi' : 'BELUM dikonfigurasi'}
           </Text>
@@ -176,13 +176,13 @@ function Action({
     <Pressable onPress={onPress} disabled={busy}>
       <Card style={[styles.action, busy && styles.actionBusy]}>
         <View style={styles.actionIcon}>
-          <Ionicons name={icon} size={20} color={colors.primary} />
+          <Ionicons name={icon} size={20} color={'#0e4da4'} />
         </View>
         <View style={styles.actionInfo}>
           <Text style={styles.actionTitle}>{title}</Text>
           <Text style={styles.actionDesc}>{desc}</Text>
         </View>
-        <Ionicons name={busy ? 'hourglass' : 'play'} size={18} color={colors.accent} />
+        <Ionicons name={busy ? 'hourglass' : 'play'} size={18} color={'#00a86b'} />
       </Card>
     </Pressable>
   );

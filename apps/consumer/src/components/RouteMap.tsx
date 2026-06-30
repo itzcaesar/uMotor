@@ -15,7 +15,7 @@ import { colors, type LatLng } from '@umotor/shared';
  */
 function buildHtml(initial: LatLng[], live: boolean) {
   const coordsJson = JSON.stringify(initial.map((c) => [c.lat, c.lng]));
-  const headColor = live ? colors.primary : colors.danger;
+  const headColor = live ? '#0e4da4' : '#e0543f';
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -32,14 +32,14 @@ function buildHtml(initial: LatLng[], live: boolean) {
   <script>
     var map = L.map('map', { zoomControl: false, attributionControl: false }).setView([-6.914, 107.61], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-    var line = L.polyline([], { color: '${colors.primary}', weight: 5, opacity: 0.9, lineJoin: 'round', lineCap: 'round' }).addTo(map);
+    var line = L.polyline([], { color: '${'#0e4da4'}', weight: 5, opacity: 0.9, lineJoin: 'round', lineCap: 'round' }).addTo(map);
     var startMarker = null, headMarker = null;
     function render(coords) {
       if (!coords || !coords.length) return;
       line.setLatLngs(coords);
       var start = coords[0], head = coords[coords.length - 1];
       if (!startMarker) {
-        startMarker = L.circleMarker(start, { radius: 6, color: '#fff', weight: 2, fillColor: '${colors.accent}', fillOpacity: 1 }).addTo(map);
+        startMarker = L.circleMarker(start, { radius: 6, color: '#fff', weight: 2, fillColor: '${'#00a86b'}', fillOpacity: 1 }).addTo(map);
       } else { startMarker.setLatLng(start); }
       if (!headMarker) {
         headMarker = L.circleMarker(head, { radius: 6, color: '#fff', weight: 2, fillColor: '${headColor}', fillOpacity: 1 }).addTo(map);
@@ -102,14 +102,13 @@ export function RouteMap({
         ref={ref}
         source={{ html }}
         originWhitelist={['*']}
-        style={styles.webview}
+        // The map is decorative within a scroll; keep gestures with the screen.
+        style={[styles.webview, { pointerEvents: live ? 'none' : 'auto' }]}
         scrollEnabled={false}
         nestedScrollEnabled={false}
         overScrollMode="never"
         startInLoadingState={false}
         androidLayerType="hardware"
-        // The map is decorative within a scroll; keep gestures with the screen.
-        pointerEvents={live ? 'none' : 'auto'}
       />
     </View>
   );

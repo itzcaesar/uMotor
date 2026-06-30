@@ -9,8 +9,8 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, samsatLookup, type VehicleInfo } from '@umotor/shared';
-import { Card, tabletContainer, useResponsive } from '@/components/ui';
+import { samsatLookup, type VehicleInfo } from '@umotor/shared';
+import { tabletContainer, umotor, useResponsive } from '@/components/ui';
 import { safeBack } from '@/lib/nav';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
@@ -96,8 +96,8 @@ export default function AddBike() {
     return (
       <View style={styles.screen}>
         <View style={[styles.content, tabletContainer(r)]}>
-          <Card style={styles.successCard}>
-            <Ionicons name="checkmark-circle" size={52} color={colors.accent} />
+          <View style={[styles.card, styles.successCard]}>
+            <Ionicons name="checkmark-circle" size={52} color={'#00a86b'} />
             <Text style={styles.successTitle}>Motor terdaftar</Text>
             <Text style={styles.successBody}>
               {found?.brand} {found?.model} ({found?.plate}) sudah masuk ke garasimu.
@@ -106,7 +106,7 @@ export default function AddBike() {
               <Ionicons name="bicycle" size={18} color="#fff" />
               <Text style={styles.successBtnText}>Lihat garasi</Text>
             </Pressable>
-          </Card>
+          </View>
         </View>
       </View>
     );
@@ -115,7 +115,7 @@ export default function AddBike() {
   return (
     <View style={styles.screen}>
       <View style={[styles.content, tabletContainer(r)]}>
-        <Card>
+        <View style={styles.card}>
           <Text style={styles.label}>Plat nomor</Text>
           <View style={styles.inputRow}>
             <TextInput
@@ -128,7 +128,7 @@ export default function AddBike() {
               }}
               placeholder="D 1234 ABC"
               autoCapitalize="characters"
-              placeholderTextColor="#98a2b3"
+              placeholderTextColor={umotor.faint}
             />
             <Pressable
               style={[styles.lookupBtn, looking && styles.lookupBtnBusy]}
@@ -146,29 +146,29 @@ export default function AddBike() {
             Data kendaraan ditarik otomatis dari Samsat. Coba plat apa saja (mis. D 1234 ABC) — data
             kepemilikan & pajak muncul otomatis.
           </Text>
-        </Card>
+        </View>
 
         {looking && (
-          <Card style={styles.notFound}>
-            <ActivityIndicator color={colors.primary} size="small" />
+          <View style={[styles.card, styles.notFound]}>
+            <ActivityIndicator color={umotor.primary} size="small" />
             <Text style={styles.lookingText}>Menghubungi Samsat…</Text>
-          </Card>
+          </View>
         )}
 
         {checked && !found && (
-          <Card style={styles.notFound}>
-            <Ionicons name="alert-circle" size={20} color={colors.danger} />
+          <View style={[styles.card, styles.notFound]}>
+            <Ionicons name="alert-circle" size={20} color={'#e0543f'} />
             <Text style={styles.notFoundText}>Format plat tidak valid. Contoh: D 1234 ABC.</Text>
-          </Card>
+          </View>
         )}
 
         {found && (
-          <Card style={styles.foundCard}>
+          <View style={[styles.card, styles.foundCard]}>
             <View style={styles.foundHeader}>
               <Ionicons
                 name={found.source === 'samsat' ? 'shield-checkmark' : 'cloud-outline'}
                 size={20}
-                color={found.source === 'samsat' ? colors.accent : colors.warning}
+                color={found.source === 'samsat' ? '#00a86b' : '#e6b13f'}
               />
               <Text style={styles.foundTitle}>
                 {found.source === 'samsat' ? 'Terverifikasi Samsat' : 'Estimasi data kendaraan'}
@@ -204,11 +204,11 @@ export default function AddBike() {
               onChangeText={setOdometer}
               placeholder="12000"
               keyboardType="number-pad"
-              placeholderTextColor="#98a2b3"
+              placeholderTextColor={umotor.faint}
             />
             {errorMsg && (
               <View style={styles.errRow}>
-                <Ionicons name="alert-circle" size={16} color={colors.danger} />
+                <Ionicons name="alert-circle" size={16} color={'#e0543f'} />
                 <Text style={styles.errText}>{errorMsg}</Text>
               </View>
             )}
@@ -219,7 +219,7 @@ export default function AddBike() {
                 <Text style={styles.saveText}>Daftarkan motor</Text>
               )}
             </Pressable>
-          </Card>
+          </View>
         )}
       </View>
     </View>
@@ -237,7 +237,7 @@ function FoundRow({
 }) {
   return (
     <View style={styles.foundRow}>
-      <Ionicons name={icon} size={15} color="#667085" />
+      <Ionicons name={icon} size={15} color={umotor.sub} />
       <Text style={styles.foundRowLabel}>{label}</Text>
       <Text style={styles.foundRowValue}>{value}</Text>
     </View>
@@ -245,24 +245,25 @@ function FoundRow({
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#f3f6fb' },
+  screen: { flex: 1, backgroundColor: umotor.bg },
   content: { padding: 16, gap: 12 },
-  label: { fontWeight: '700', color: '#0b1727', marginBottom: 6, fontSize: 13 },
+  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: 'rgba(0,0,0,0.06)' },
+  label: { fontWeight: '700', color: umotor.ink, marginBottom: 6, fontSize: 13 },
   inputRow: { flexDirection: 'row', gap: 8 },
   input: {
     flex: 1,
-    backgroundColor: '#f3f6fb',
+    backgroundColor: umotor.bg,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 12,
     fontSize: 15,
     fontWeight: '600',
-    color: '#0b1727',
+    color: umotor.ink,
     borderWidth: 1,
-    borderColor: '#e5e9f0',
+    borderColor: umotor.line,
   },
   lookupBtn: {
-    backgroundColor: colors.primary,
+    backgroundColor: umotor.primary,
     borderRadius: 10,
     paddingHorizontal: 14,
     minWidth: 96,
@@ -271,13 +272,13 @@ const styles = StyleSheet.create({
   },
   lookupBtnBusy: { opacity: 0.7 },
   lookupText: { color: '#fff', fontWeight: '700', fontSize: 13 },
-  hint: { color: '#98a2b3', fontSize: 11, marginTop: 8, lineHeight: 15 },
+  hint: { color: umotor.faint, fontSize: 11, marginTop: 8, lineHeight: 15 },
   notFound: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  notFoundText: { color: colors.danger, fontWeight: '600', flexShrink: 1 },
-  lookingText: { color: colors.primary, fontWeight: '600' },
+  notFoundText: { color: '#e0543f', fontWeight: '600', flexShrink: 1 },
+  lookingText: { color: umotor.primary, fontWeight: '600' },
   foundCard: { gap: 8 },
   foundHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  foundTitle: { fontWeight: '800', color: '#0b1727', flex: 1 },
+  foundTitle: { fontWeight: '800', color: umotor.heroDark, flex: 1 },
   sourceBadge: {
     backgroundColor: '#e2f6ee',
     borderRadius: 999,
@@ -288,20 +289,20 @@ const styles = StyleSheet.create({
   sourceBadgeEst: { backgroundColor: '#fdf3e3' },
   sourceText: { color: '#067647', fontSize: 11, fontWeight: '700' },
   sourceTextEst: { color: '#9a6700' },
-  foundModel: { color: '#344054', fontWeight: '700', fontSize: 15 },
+  foundModel: { color: umotor.ink, fontWeight: '700', fontSize: 15 },
   foundMeta: {
     gap: 6,
     marginBottom: 4,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#eef1f6',
+    borderTopColor: umotor.line,
   },
   foundRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  foundRowLabel: { color: '#667085', fontSize: 12, width: 110 },
-  foundRowValue: { color: '#0b1727', fontSize: 12, fontWeight: '600', flexShrink: 1 },
+  foundRowLabel: { color: umotor.sub, fontSize: 12, width: 110 },
+  foundRowValue: { color: umotor.ink, fontSize: 12, fontWeight: '600', flexShrink: 1 },
   saveBtn: {
     marginTop: 8,
-    backgroundColor: colors.accent,
+    backgroundColor: umotor.primary,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
@@ -309,16 +310,16 @@ const styles = StyleSheet.create({
   saveBusy: { opacity: 0.7 },
   saveText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   errRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
-  errText: { color: colors.danger, fontSize: 13, fontWeight: '600', flexShrink: 1 },
+  errText: { color: '#e0543f', fontSize: 13, fontWeight: '600', flexShrink: 1 },
   successCard: { alignItems: 'center', gap: 8, paddingVertical: 24 },
-  successTitle: { fontSize: 19, fontWeight: '800', color: '#0b1727', marginTop: 4 },
-  successBody: { color: '#475467', fontSize: 14, textAlign: 'center', lineHeight: 20 },
+  successTitle: { fontSize: 19, fontWeight: '800', color: umotor.heroDark, marginTop: 4 },
+  successBody: { color: umotor.sub, fontSize: 14, textAlign: 'center', lineHeight: 20 },
   successBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     marginTop: 12,
-    backgroundColor: colors.primary,
+    backgroundColor: umotor.primary,
     borderRadius: 12,
     paddingHorizontal: 24,
     paddingVertical: 13,

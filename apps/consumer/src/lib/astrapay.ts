@@ -27,7 +27,10 @@ import {
 import { openAstraPayBrowser } from './astrapay-browser';
 import { supabase } from './supabase';
 
-export const ASTRAPAY_LIVE = (process.env.EXPO_PUBLIC_ASTRAPAY_LIVE ?? '') === '1';
+// Live AstraPay is the default — the app talks to the real SNAP sandbox. Set
+// EXPO_PUBLIC_ASTRAPAY_LIVE=0 only for offline local dev (no secrets); there is
+// no in-app mock/demo payment path otherwise.
+export const ASTRAPAY_LIVE = (process.env.EXPO_PUBLIC_ASTRAPAY_LIVE ?? '1') !== '0';
 
 const STATUS_COPY: Record<AstraPayTxnStatus, string> = {
   SUCCESS: 'berhasil',
@@ -128,9 +131,9 @@ export async function payAstraPayLive(
 }
 
 /**
- * Single AstraPay entry point for every checkout flow — live SNAP when
- * EXPO_PUBLIC_ASTRAPAY_LIVE=1, the mock otherwise. Same signature as the mock,
- * so call sites swap `payAstraPay` → `payAstraPaySmart` with no other change.
+ * Single AstraPay entry point for every checkout flow. Live SNAP by default (the
+ * real sandbox); only an explicit EXPO_PUBLIC_ASTRAPAY_LIVE=0 (offline dev) falls
+ * back to the mock. Same signature either way.
  */
 export const payAstraPaySmart = ASTRAPAY_LIVE ? payAstraPayLive : payAstraPay;
 
@@ -172,18 +175,18 @@ function extractAuthCode(rawUrl: string): string | undefined {
  * OTP 111111 + PIN) → best-effort capture the authCode from the finish redirect
  * → exchange + persist the wallet token server-side.
  *
- * Returns whether the token was actually stored (`walletBound`). It does NOT
- * throw once the webview has run: the redirect back to a custom scheme is
- * unreliable (esp. in Expo Go — it may return success/dismiss/cancel and may or
- * may not carry the authCode). So login proceeds regardless; if the token wasn't
- * captured, payments simply fall back to push-payment. Only a hard failure
- * *before* the webview (no redirect URL) throws.
+ * Returns whether the wallet token was stored (`walletBound`) and whether the
+ * user actually completed the AstraPay webview (`completed` — the page redirected
+ * back after a real OTP/PIN authorization, vs the user closing it). Login uses
+ * `completed` to gate entry strictly behind AstraPay while tolerating the
+ * occasionally-flaky post-auth token capture. It does NOT throw once the webview
+ * has run; only a hard failure *before* the webview (no redirect URL) throws.
  */
 export async function bindAstraPay(
   userId: string,
   opts: BindOpts = {},
-): Promise<{ walletBound: boolean }> {
-  if (!ASTRAPAY_LIVE) return { walletBound: false };
+): Promise<{ walletBound: boolean; completed: boolean }> {
+  if (!ASTRAPAY_LIVE) return { walletBound: false, completed: false };
 
   // AstraPay expects digits only — Profile passes "0853-4886-1424" (dashes),
   // login passes digits; normalize both here.
@@ -212,19 +215,22 @@ export async function bindAstraPay(
     finishUrl: finishBindingUrl,
     title: 'Hubungkan AstraPay',
   });
-  const returnUrl = result.type === 'success' ? result.url : undefined;
+  // The webview resolves 'success' only when AstraPay redirects back after a real
+  // OTP/PIN authorization — a reliable "the user went through AstraPay" signal.
+  const completed = result.type === 'success';
+  const returnUrl = completed ? result.url : undefined;
   const authCode = (returnUrl ? extractAuthCode(returnUrl) : undefined) ?? responseAuthCode;
   if (!authCode) {
     console.warn(`[astrapay] bind: no authCode (webview type=${result.type})`);
-    return { walletBound: false };
+    return { walletBound: false, completed };
   }
 
   try {
     const link = await astrapayLink(supabase, { userId, authCode, phoneNo: phone });
-    return { walletBound: !!link.bound };
+    return { walletBound: !!link.bound, completed };
   } catch (e) {
     console.warn('[astrapay] link failed', e);
-    return { walletBound: false };
+    return { walletBound: false, completed };
   }
 }
 
@@ -232,4 +238,27 @@ export async function bindAstraPay(
 export async function unbindAstraPay(userId: string): Promise<void> {
   if (!ASTRAPAY_LIVE) return;
   await astrapayUnlink(supabase, { userId });
+}
+
+/**
+ * Has this user already linked their AstraPay wallet? Lets login skip the
+ * OTP/PIN binding webview for a returning user — the local session is cleared on
+ * logout, but the wallet link persists on the users row across sessions.
+ *
+ * Token expiry is intentionally ignored: a lapsed token doesn't unlink the
+ * wallet (payments just fall back to push-payment), so it must not force a
+ * re-bind at login. Refreshing the token is a deliberate Profile action.
+ */
+export async function isAstraPayBound(userId: string): Promise<boolean> {
+  if (!ASTRAPAY_LIVE) return false;
+  try {
+    const { data } = await supabase
+      .from('users')
+      .select('astrapay_bound_at')
+      .eq('id', userId)
+      .single();
+    return !!(data as { astrapay_bound_at?: string | null } | null)?.astrapay_bound_at;
+  } catch {
+    return false;
+  }
 }

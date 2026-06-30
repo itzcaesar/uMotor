@@ -156,8 +156,8 @@ export function AstraPayBrowserHost() {
               {/* Only on the INITIAL load — never re-cover the page (would hide the
                   OTP screen when AstraPay does an in-page transition). */}
               {loading && !firstLoaded && (
-                <View style={styles.loading} pointerEvents="none">
-                  <ActivityIndicator size="large" color={colors.primary} />
+                <View style={[styles.loading, { pointerEvents: 'none' }]}>
+                  <ActivityIndicator size="large" color={'#0e4da4'} />
                   <Text style={styles.loadingText}>Memuat AstraPay…</Text>
                 </View>
               )}
@@ -195,11 +195,11 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 8,
-    backgroundColor: colors.primary,
+    backgroundColor: '#0e4da4',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  title: { fontWeight: '800', color: colors.primary, fontSize: 15 },
+  title: { fontWeight: '800', color: '#0e4da4', fontSize: 15 },
   body: { flex: 1 },
   loading: {
     position: 'absolute',
@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
   errSub: { color: '#667085', fontSize: 13, textAlign: 'center' },
   btn: {
     marginTop: 8,
-    backgroundColor: colors.primary,
+    backgroundColor: '#0e4da4',
     borderRadius: 12,
     paddingHorizontal: 24,
     paddingVertical: 13,
@@ -227,5 +227,5 @@ const styles = StyleSheet.create({
   },
   btnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
   btnGhost: { backgroundColor: '#eef4fd' },
-  btnGhostText: { color: colors.primary },
+  btnGhostText: { color: '#0e4da4' },
 });

@@ -1,20 +1,22 @@
-import { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useQuery } from '@tanstack/react-query';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, formatRp, type MotoScore, type User } from '@umotor/shared';
-import { Card, useResponsive } from '@/components/ui';
-import { ASTRAPAY_LIVE, bindAstraPay, unbindAstraPay } from '@/lib/astrapay';
-import { confirmDialog, notify } from '@/lib/dialog';
+import { formatRp, type MotoScore, type User } from '@umotor/shared';
+import { Illustration } from '@/components/Illustration';
+import { umotor, useResponsive } from '@/components/ui';
+import { notify } from '@/lib/dialog';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 
+const astrapayMark = require('../../../assets/figma/astrapay-mark.png');
+
 export default function Profile() {
   const { userId, logout } = useSession();
-  const qc = useQueryClient();
   const r = useResponsive();
-  const [binding, setBinding] = useState(false);
+  const insets = useSafeAreaInsets();
 
   const profile = useQuery({
     queryKey: ['profile', userId],
@@ -34,174 +36,114 @@ export default function Profile() {
   });
 
   const d = profile.data;
-  const bound = !!d?.user?.astrapay_bound_at;
-
-  const onBind = async () => {
-    if (!userId || binding) return;
-    setBinding(true);
-    try {
-      const { walletBound } = await bindAstraPay(userId, {
-        phone: d?.user?.phone ?? undefined,
-        name: d?.user?.name ?? undefined,
-      });
-      qc.invalidateQueries({ queryKey: ['profile', userId] });
-      if (walletBound) {
-        notify('Akun terhubung', 'Wallet AstraPay siap dipakai — bayar tanpa login ulang.');
-      } else {
-        notify('Belum tertaut', 'Login AstraPay selesai, tapi token wallet belum diterima. Coba lagi.');
-      }
-    } catch (e) {
-      notify('Gagal menghubungkan', e instanceof Error ? e.message : 'Coba lagi.');
-    } finally {
-      setBinding(false);
-    }
-  };
-
-  const onUnbind = () => {
-    if (!userId || binding) return;
-    confirmDialog(
-      'Putuskan akun AstraPay?',
-      'Pembayaran berikutnya akan meminta login ulang di webview AstraPay.',
-      async () => {
-        setBinding(true);
-        try {
-          await unbindAstraPay(userId);
-          qc.invalidateQueries({ queryKey: ['profile', userId] });
-          notify('Akun diputuskan', 'Akun AstraPay tidak lagi tertaut.');
-        } catch (e) {
-          notify('Gagal', e instanceof Error ? e.message : 'Coba lagi.');
-        } finally {
-          setBinding(false);
-        }
-      },
-      { confirmLabel: 'Putuskan', cancelLabel: 'Batal', destructive: true },
-    );
-  };
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, r.isTablet && styles.contentWide]}>
-      <Card>
-        {/* Long-press = hidden presenter tools (PRD 01 §8). */}
-        <Pressable onLongPress={() => router.push('/demo-controls')} delayLongPress={600}>
-          <Text style={styles.name}>{d?.user?.name ?? '…'}</Text>
+    <ScrollView
+      style={styles.scroll}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 100 }, r.isTablet && styles.contentWide]}
+    >
+      <Text style={styles.header}>Profile</Text>
+
+      {/* Identity card */}
+      <Pressable style={styles.idCard} onLongPress={() => router.push('/demo-controls')} delayLongPress={600}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.username} numberOfLines={1}>{d?.user?.name ?? '…'}</Text>
           <Text style={styles.phone}>{d?.user?.phone ?? ''}</Text>
-        </Pressable>
-        <View style={styles.walletRow}>
-          <Text style={styles.walletLabel}>Saldo AstraPay</Text>
-          <Text style={styles.walletValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
-            {d?.user ? formatRp(d.user.astrapay_balance) : '—'}
-          </Text>
         </View>
-      </Card>
-
-      {/* AstraPay account binding (live integration only). */}
-      {ASTRAPAY_LIVE && (
-        <Card style={styles.bindCard}>
-          <View style={styles.bindHeader}>
-            <View style={[styles.bindIcon, bound && styles.bindIconOn]}>
-              <Ionicons name={bound ? 'link' : 'link-outline'} size={18} color={bound ? colors.accent : colors.primary} />
-            </View>
-            <View style={styles.bindInfo}>
-              <Text style={styles.bindTitle}>Akun AstraPay</Text>
-              <Text style={styles.bindSub}>
-                {bound
-                  ? `Terhubung${d?.user?.astrapay_phone ? ` · ${d.user.astrapay_phone}` : ''}`
-                  : 'Hubungkan agar bayar tanpa login ulang tiap transaksi'}
-              </Text>
-            </View>
-            {bound && <Ionicons name="checkmark-circle" size={20} color={colors.accent} />}
-          </View>
-          <Pressable
-            style={[styles.bindBtn, bound && styles.bindBtnGhost, binding && styles.bindBtnBusy]}
-            onPress={bound ? onUnbind : onBind}
-            disabled={binding}
-            accessibilityRole="button"
-            accessibilityLabel={bound ? 'Putuskan akun AstraPay' : 'Hubungkan akun AstraPay'}
-          >
-            {binding ? (
-              <ActivityIndicator color={bound ? colors.danger : '#fff'} />
-            ) : (
-              <Text style={[styles.bindBtnText, bound && styles.bindBtnTextGhost]}>
-                {bound ? 'Putuskan akun' : 'Hubungkan AstraPay'}
-              </Text>
-            )}
-          </Pressable>
-        </Card>
-      )}
-
-      <Pressable onPress={() => router.push('/motoscore')}>
-        <Card style={styles.scoreCard}>
-          <Text style={styles.scoreLabel}>MotoScore</Text>
-          <Text style={styles.scoreValue}>{d?.score?.score ?? '—'}</Text>
-          <Text style={styles.scoreHint}>300–850 · ketuk untuk detail & produk finansial</Text>
-        </Card>
+        <View style={[styles.idIllus, { pointerEvents: 'none' }]}>
+          <Illustration name="profile" height={92} />
+        </View>
+        <View style={styles.idStrip} />
       </Pressable>
 
-      <Card>
-        <View style={styles.walletRow}>
-          <Text style={styles.walletLabel}>MotoPoints</Text>
-          <Text style={styles.pointsValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
-            {d?.points.toLocaleString('id-ID') ?? '—'}
-          </Text>
-        </View>
-      </Card>
+      <Text style={styles.sectionTitle}>Kantong & Score</Text>
 
-      <Pressable
-        style={styles.logout}
-        onPress={() => {
-          logout();
-          router.replace('/login');
-        }}
-      >
-        <Text style={styles.logoutText}>Keluar</Text>
+      {/* AstraPay + Moto Points */}
+      <View style={styles.row2}>
+        <Pressable style={[styles.miniCard, { backgroundColor: umotor.heroMid }]} onPress={() => router.push('/finance')}>
+          <Image source={astrapayMark} style={styles.watermark} contentFit="contain" tintColor="#fff" />
+          <View style={styles.miniTop}>
+            <Image source={astrapayMark} style={{ width: 34, height: 30 }} contentFit="contain" tintColor={'#fff'} />
+            <Text style={styles.miniAction}>Lihat pengeluaran ›</Text>
+          </View>
+          <Text style={styles.miniLabel}>AstraPay</Text>
+          <Text style={styles.miniValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+            {d?.user ? formatRp(d.user.astrapay_balance) : '—'}
+          </Text>
+        </Pressable>
+        <Pressable style={[styles.miniCard, { backgroundColor: umotor.heroDark }]} onPress={() => notify('Tukar Points', 'Penukaran MotoPoints segera hadir.')}>
+          <View style={styles.miniTop}>
+            <View style={{ flex: 1 }} />
+            <Text style={styles.miniAction}>Tukar Points ›</Text>
+          </View>
+          <Text style={styles.miniLabel}>Moto Points</Text>
+          <Text style={styles.miniValue}>{d?.points.toLocaleString('id-ID') ?? '—'}</Text>
+        </Pressable>
+      </View>
+
+      {/* Moto Score */}
+      <Pressable style={styles.scoreCard} onPress={() => router.push('/motoscore')}>
+        <View style={styles.scoreTop}>
+          <Text style={styles.scoreLabel}>Moto Score</Text>
+          <Text style={styles.scoreAction}>Ketuk untuk detail & produk finansial ›</Text>
+        </View>
+        <Text style={styles.scoreValue}>
+          {d?.score?.score ?? '—'}
+          <Text style={styles.scoreUnit}>pt</Text>
+        </Text>
+      </Pressable>
+
+      {/* Need help */}
+      <Text style={styles.needHelp}>Need Help?</Text>
+      <View style={styles.helpRow}>
+        <Pressable style={styles.helpBtn} onPress={() => notify('Bantuan', 'Pusat bantuan uMotor segera hadir.')}>
+          <Ionicons name="headset-outline" size={20} color={umotor.heroDark} />
+        </Pressable>
+        <Pressable style={styles.helpBtn} onPress={() => notify('Chat', 'Live chat segera hadir.')}>
+          <Ionicons name="chatbubble-ellipses-outline" size={20} color={umotor.heroDark} />
+        </Pressable>
+      </View>
+
+      <Pressable style={styles.logout} onPress={() => { logout(); router.replace('/login'); }}>
+        <Ionicons name="exit-outline" size={16} color="#e0543f" />
+        <Text style={styles.logoutText}>Log Out</Text>
       </Pressable>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: '#f3f6fb' },
-  content: { padding: 16, gap: 12 },
-  contentWide: { maxWidth: 520, width: '100%', alignSelf: 'center' },
-  name: { fontSize: 20, fontWeight: '800', color: '#0b1727' },
-  phone: { color: '#667085', marginTop: 2 },
-  walletRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  walletLabel: { color: '#667085' },
-  walletValue: { fontWeight: '800', fontSize: 16, color: colors.primary },
-  bindCard: { gap: 12 },
-  bindHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  bindIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: '#eef4fd',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bindIconOn: { backgroundColor: '#e2f6ee' },
-  bindInfo: { flex: 1, gap: 2 },
-  bindTitle: { fontWeight: '800', color: '#0b1727', fontSize: 14 },
-  bindSub: { color: '#667085', fontSize: 12, lineHeight: 16 },
-  bindBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: 13,
-    alignItems: 'center',
-  },
-  bindBtnGhost: { backgroundColor: '#fdecec' },
-  bindBtnBusy: { opacity: 0.6 },
-  bindBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  bindBtnTextGhost: { color: colors.danger },
-  scoreCard: { alignItems: 'center', paddingVertical: 24 },
-  scoreLabel: { color: '#667085', fontWeight: '600' },
-  scoreValue: { fontSize: 56, fontWeight: '800', color: colors.accent, marginTop: 4 },
-  scoreHint: { fontSize: 12, color: '#98a2b3', marginTop: 4 },
-  pointsValue: { fontWeight: '800', fontSize: 16, color: '#0b1727' },
-  logout: { alignItems: 'center', padding: 14 },
-  logoutText: { color: colors.danger, fontWeight: '700' },
+  scroll: { flex: 1, backgroundColor: umotor.bg },
+  content: { paddingHorizontal: 18, gap: 14 },
+  contentWide: { maxWidth: 560, width: '100%', alignSelf: 'center' },
+  header: { fontSize: 22, fontWeight: '800', color: umotor.heroDark },
+
+  idCard: { backgroundColor: '#d0e4ff', borderRadius: 18, padding: 18, paddingBottom: 26, flexDirection: 'row', overflow: 'hidden', minHeight: 110 },
+  username: { fontSize: 26, fontWeight: '800', color: umotor.heroDark },
+  phone: { fontSize: 13, color: 'rgba(28,78,147,0.55)', marginTop: 4 },
+  idIllus: { position: 'absolute', right: 12, top: 8 },
+  idStrip: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 14, backgroundColor: umotor.heroDark },
+
+  sectionTitle: { fontSize: 18, fontWeight: '800', color: umotor.heroDark },
+  row2: { flexDirection: 'row', gap: 14 },
+  miniCard: { flex: 1, borderRadius: 16, padding: 16, height: 180, justifyContent: 'space-between', overflow: 'hidden' },
+  watermark: { position: 'absolute', right: -18, bottom: -20, width: 152, height: 140, opacity: 0.13, filter: 'blur(3px)' },
+  miniTop: { flexDirection: 'row', alignItems: 'center' },
+  miniAction: { color: 'rgba(255,255,255,0.85)', fontSize: 10, fontWeight: '400', marginLeft: 'auto' },
+  miniLabel: { color: '#fff', fontSize: 20, fontWeight: '400', marginTop: 'auto' },
+  miniValue: { color: '#fff', fontSize: 15, fontWeight: '400', marginTop: 2 },
+
+  scoreCard: { backgroundColor: '#fff', borderRadius: 16, padding: 18 },
+  scoreTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  scoreLabel: { fontSize: 16, fontWeight: '700', color: umotor.heroMid },
+  scoreAction: { fontSize: 11, fontWeight: '400', color: umotor.heroMid, flexShrink: 1, textAlign: 'right' },
+  scoreValue: { fontSize: 104, lineHeight: 104, fontWeight: '800', color: '#5b9bf0', marginTop: 4 },
+  scoreUnit: { fontSize: 40, fontWeight: '800', color: '#5b9bf0' },
+
+  needHelp: { textAlign: 'center', color: umotor.faint, fontSize: 13, marginTop: 6 },
+  helpRow: { flexDirection: 'row', justifyContent: 'center', gap: 16 },
+  helpBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#cfe0f7', alignItems: 'center', justifyContent: 'center' },
+
+  logout: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#e6ecf5', borderRadius: 14, paddingVertical: 15, marginTop: 8, alignSelf: 'center', paddingHorizontal: 48 },
+  logoutText: { color: '#e0543f', fontWeight: '700', fontSize: 15 },
 });

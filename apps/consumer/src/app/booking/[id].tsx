@@ -1,21 +1,25 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
 import {
-  colors,
   formatRp,
   type Booking,
   type BookingStatus,
   type Service,
   type Workshop,
 } from '@umotor/shared';
-import { Card, tabletContainer, useResponsive } from '@/components/ui';
+import { tabletContainer, umotor, useResponsive } from '@/components/ui';
 import { confirmDialog, notify } from '@/lib/dialog';
+import { safeBack } from '@/lib/nav';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
+
+const backIcon = require('../../../assets/figma/ic-back.png');
 
 type BookingDetail = Booking & {
   workshops: Workshop | null;
@@ -44,6 +48,7 @@ export default function BookingStatusScreen() {
   const celebrated = useRef(false);
   const [scoreAnim, setScoreAnim] = useState<{ from: number; to: number; value: number } | null>(null);
   const r = useResponsive();
+  const insets = useSafeAreaInsets();
 
   const booking = useQuery({
     queryKey: ['booking-detail', id],
@@ -53,9 +58,7 @@ export default function BookingStatusScreen() {
     queryFn: async (): Promise<BookingDetail> => {
       const { data, error } = await supabase
         .from('bookings')
-        .select(
-          '*, workshops(*), services(*), slots(slot_at), booking_parts(qty, unit_price, spareparts(name))',
-        )
+        .select('*, workshops(*), services(*), slots(slot_at), booking_parts(qty, unit_price, spareparts(name))')
         .eq('id', id!)
         .single();
       if (error) throw error;
@@ -68,14 +71,10 @@ export default function BookingStatusScreen() {
     if (!id) return;
     const channel = supabase
       .channel(`booking-${id}`)
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'bookings', filter: `id=eq.${id}` },
-        () => {
-          qc.invalidateQueries({ queryKey: ['booking-detail', id] });
-          qc.invalidateQueries({ queryKey: ['bookings', userId] });
-        },
-      )
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'bookings', filter: `id=eq.${id}` }, () => {
+        qc.invalidateQueries({ queryKey: ['booking-detail', id] });
+        qc.invalidateQueries({ queryKey: ['bookings', userId] });
+      })
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
@@ -91,12 +90,7 @@ export default function BookingStatusScreen() {
   useEffect(() => {
     const status = booking.data?.status;
     if (!status) return;
-    if (
-      prevStatus.current &&
-      prevStatus.current !== 'completed' &&
-      status === 'completed' &&
-      !celebrated.current
-    ) {
+    if (prevStatus.current && prevStatus.current !== 'completed' && status === 'completed' && !celebrated.current) {
       celebrated.current = true;
       supabase
         .from('motoscore')
@@ -124,25 +118,34 @@ export default function BookingStatusScreen() {
   // slot and refunds the deposit to the wallet.
   const cancel = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.rpc('update_booking_status', {
-        p_booking_id: id,
-        p_status: 'cancelled',
-      });
+      const { error } = await supabase.rpc('update_booking_status', { p_booking_id: id, p_status: 'cancelled' });
       if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries();
-      notify(
-        'Booking dibatalkan',
-        `Deposit ${formatRp(booking.data?.deposit_amount ?? 0)} dikembalikan ke saldo AstraPay.`,
-      );
+      notify('Booking dibatalkan', `Deposit ${formatRp(booking.data?.deposit_amount ?? 0)} dikembalikan ke saldo AstraPay.`);
     },
     onError: (e) => notify('Gagal', e.message),
   });
 
   const b = booking.data;
+
+  const header = (
+    <View style={[styles.header, { paddingTop: insets.top + 18 }]}>
+      <Pressable onPress={() => safeBack('/(tabs)/bookings')} hitSlop={10} style={{ width: 25, height: 25 }} accessibilityLabel="Kembali">
+        <Image source={backIcon} style={{ width: 25, height: 25 }} contentFit="contain" tintColor={umotor.heroDark} />
+      </Pressable>
+      <Text style={styles.headerTitle}>Status Servis</Text>
+    </View>
+  );
+
   if (!b) {
-    return <Text style={styles.loading}>{booking.isLoading ? 'Memuat…' : 'Booking tidak ditemukan.'}</Text>;
+    return (
+      <View style={styles.screen}>
+        {header}
+        <Text style={styles.loading}>{booking.isLoading ? 'Memuat…' : 'Booking tidak ditemukan.'}</Text>
+      </View>
+    );
   }
 
   const idx = stepIndex(b.status);
@@ -151,12 +154,13 @@ export default function BookingStatusScreen() {
 
   return (
     <View style={styles.screen}>
-      <ScrollView contentContainerStyle={[styles.content, tabletContainer(r)]}>
+      {header}
+      <ScrollView contentContainerStyle={[styles.content, tabletContainer(r), { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
         {/* Status stepper */}
-        <Card>
+        <View style={styles.card}>
           {cancelled ? (
             <View style={styles.cancelled}>
-              <Ionicons name="close-circle" size={22} color={colors.danger} />
+              <Ionicons name="close-circle" size={22} color={'#e0543f'} />
               <Text style={styles.cancelledText}>Booking dibatalkan — deposit dikembalikan.</Text>
             </View>
           ) : (
@@ -166,49 +170,37 @@ export default function BookingStatusScreen() {
                 return (
                   <View key={s.key} style={styles.step}>
                     <View style={[styles.stepDot, done && styles.stepDotDone]}>
-                      <Ionicons name={s.icon} size={16} color={done ? '#fff' : '#98a2b3'} />
+                      <Ionicons name={s.icon} size={16} color={done ? '#fff' : umotor.faint} />
                     </View>
-                    <Text style={[styles.stepLabel, done && styles.stepLabelDone]} numberOfLines={1}>
-                      {s.label}
-                    </Text>
-                    {i < STEPS.length - 1 && (
-                      <View style={[styles.stepLine, i < idx && styles.stepLineDone]} />
-                    )}
+                    <Text style={[styles.stepLabel, done && styles.stepLabelDone]} numberOfLines={1}>{s.label}</Text>
+                    {i < STEPS.length - 1 && <View style={[styles.stepLine, i < idx && styles.stepLineDone]} />}
                   </View>
                 );
               })}
             </View>
           )}
-          {b.status === 'in_progress' && (
-            <Text style={styles.inProgress}>Motor sedang dikerjakan mekanik…</Text>
-          )}
-        </Card>
+          {b.status === 'in_progress' && <Text style={styles.inProgress}>Motor sedang dikerjakan mekanik…</Text>}
+        </View>
 
         {/* QR check-in (until checked in) */}
         {(b.status === 'pending' || b.status === 'confirmed') && (
-          <Card style={styles.qrCard}>
+          <View style={[styles.card, styles.qrCard]}>
             <Text style={styles.qrTitle}>Tunjukkan QR ini saat tiba di bengkel</Text>
             <View style={styles.qrBox}>
-              <QRCode value={b.qr_token} size={160} color="#0b1727" />
+              <QRCode value={b.qr_token} size={160} color={umotor.ink} />
             </View>
             <Text style={styles.qrToken}>{b.qr_token}</Text>
-          </Card>
+          </View>
         )}
 
         {/* Booking info */}
-        <Card>
+        <View style={styles.card}>
           <InfoRow label="Bengkel" value={b.workshops?.name ?? '—'} />
           <InfoRow
             label="Jadwal"
             value={
               b.slots
-                ? new Date(b.slots.slot_at).toLocaleString('id-ID', {
-                    weekday: 'long',
-                    day: '2-digit',
-                    month: 'long',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })
+                ? new Date(b.slots.slot_at).toLocaleString('id-ID', { weekday: 'long', day: '2-digit', month: 'long', hour: '2-digit', minute: '2-digit' })
                 : b.is_home_service
                   ? 'Home service'
                   : 'Pasang sparepart di bengkel'
@@ -216,19 +208,12 @@ export default function BookingStatusScreen() {
           />
           <InfoRow label="Servis" value={b.services?.name ?? '—'} />
           {b.booking_parts.map((p, i) => (
-            <InfoRow
-              key={i}
-              label={`+ ${p.spareparts?.name ?? 'Sparepart'}`}
-              value={formatRp(p.unit_price * p.qty)}
-            />
+            <InfoRow key={i} label={`+ ${p.spareparts?.name ?? 'Sparepart'}`} value={formatRp(p.unit_price * p.qty)} />
           ))}
           <InfoRow label="Deposit" value={`${formatRp(b.deposit_amount)} · lunas`} />
-          <InfoRow
-            label={b.status === 'completed' ? 'Sisa dibayar' : 'Sisa tagihan'}
-            value={formatRp(remaining)}
-          />
+          <InfoRow label={b.status === 'completed' ? 'Sisa dibayar' : 'Sisa tagihan'} value={formatRp(remaining)} />
           {b.astrapay_ref && <InfoRow label="Ref AstraPay" value={b.astrapay_ref} />}
-        </Card>
+        </View>
 
         {(b.status === 'pending' || b.status === 'confirmed') && (
           <Pressable
@@ -243,9 +228,7 @@ export default function BookingStatusScreen() {
               )
             }
           >
-            <Text style={styles.cancelBtnText}>
-              {cancel.isPending ? 'Membatalkan…' : 'Batalkan booking'}
-            </Text>
+            <Text style={styles.cancelBtnText}>{cancel.isPending ? 'Membatalkan…' : 'Batalkan booking'}</Text>
           </Pressable>
         )}
       </ScrollView>
@@ -256,13 +239,11 @@ export default function BookingStatusScreen() {
           <View style={styles.celebrateCard}>
             <Ionicons name="trophy" size={44} color="#f5a623" />
             <Text style={styles.celebrateTitle}>Servis selesai!</Text>
-            <Text style={styles.celebrateSub}>
-              Sisa tagihan {formatRp(remaining)} dibayar via AstraPay.
-            </Text>
+            <Text style={styles.celebrateSub}>Sisa tagihan {formatRp(remaining)} dibayar via AstraPay.</Text>
             <View style={styles.scoreWrap}>
               <Text style={styles.scoreValue}>{scoreAnim?.value ?? '—'}</Text>
               <View style={styles.scoreDelta}>
-                <Ionicons name="arrow-up" size={14} color={colors.accent} />
+                <Ionicons name="arrow-up" size={14} color={'#00a86b'} />
                 <Text style={styles.scoreDeltaText}>+5 MotoScore</Text>
               </View>
             </View>
@@ -299,85 +280,47 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#f3f6fb' },
+  screen: { flex: 1, backgroundColor: umotor.bg },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 13, paddingHorizontal: 17, paddingBottom: 8 },
+  headerTitle: { fontSize: 18, fontWeight: '500', color: umotor.heroDark },
   content: { padding: 16, gap: 12 },
-  loading: { textAlign: 'center', color: '#98a2b3', marginTop: 48 },
+  loading: { textAlign: 'center', color: umotor.faint, marginTop: 48 },
+  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: 'rgba(0,0,0,0.06)' },
+
   steps: { flexDirection: 'row', justifyContent: 'space-between' },
   step: { alignItems: 'center', flex: 1, position: 'relative' },
-  stepDot: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#eef1f6',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1,
-  },
-  stepDotDone: { backgroundColor: colors.accent },
-  stepLabel: { fontSize: 10, color: '#98a2b3', marginTop: 6, fontWeight: '600' },
-  stepLabelDone: { color: '#0b1727' },
-  stepLine: {
-    position: 'absolute',
-    top: 17,
-    left: '50%',
-    right: '-50%',
-    height: 2,
-    backgroundColor: '#eef1f6',
-  },
-  stepLineDone: { backgroundColor: colors.accent },
-  inProgress: { marginTop: 12, textAlign: 'center', color: colors.primary, fontWeight: '600', fontSize: 13 },
+  stepDot: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#eef1f6', alignItems: 'center', justifyContent: 'center', zIndex: 1 },
+  stepDotDone: { backgroundColor: umotor.primary },
+  stepLabel: { fontSize: 10, color: umotor.faint, marginTop: 6, fontWeight: '600' },
+  stepLabelDone: { color: umotor.heroDark },
+  stepLine: { position: 'absolute', top: 17, left: '50%', right: '-50%', height: 2, backgroundColor: '#eef1f6' },
+  stepLineDone: { backgroundColor: umotor.primary },
+  inProgress: { marginTop: 12, textAlign: 'center', color: umotor.primary, fontWeight: '600', fontSize: 13 },
   cancelled: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  cancelledText: { color: colors.danger, fontWeight: '600', flexShrink: 1 },
+  cancelledText: { color: '#e0543f', fontWeight: '600', flexShrink: 1 },
   cancelBtn: { alignItems: 'center', padding: 12 },
-  cancelBtnText: { color: colors.danger, fontWeight: '700' },
+  cancelBtnText: { color: '#e0543f', fontWeight: '700' },
+
   qrCard: { alignItems: 'center', gap: 12, paddingVertical: 24 },
-  qrTitle: { fontWeight: '700', color: '#0b1727', fontSize: 14 },
-  qrBox: { padding: 14, backgroundColor: '#fff', borderRadius: 14 },
-  qrToken: { color: '#98a2b3', fontSize: 12, letterSpacing: 2, fontFamily: 'monospace' },
+  qrTitle: { fontWeight: '700', color: umotor.heroDark, fontSize: 14 },
+  qrBox: { padding: 14, backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: umotor.line },
+  qrToken: { color: umotor.faint, fontSize: 12, letterSpacing: 2, fontFamily: 'monospace' },
+
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, gap: 12 },
-  infoLabel: { color: '#667085', fontSize: 13 },
-  infoValue: { color: '#0b1727', fontWeight: '600', fontSize: 13, flexShrink: 1, textAlign: 'right' },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(11,23,39,0.7)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 32,
-  },
-  celebrateCard: {
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    padding: 28,
-    alignItems: 'center',
-    gap: 10,
-    alignSelf: 'stretch',
-  },
-  celebrateTitle: { fontSize: 22, fontWeight: '800', color: '#0b1727' },
-  celebrateSub: { color: '#667085', textAlign: 'center', fontSize: 13 },
+  infoLabel: { color: umotor.sub, fontSize: 13 },
+  infoValue: { color: umotor.ink, fontWeight: '600', fontSize: 13, flexShrink: 1, textAlign: 'right' },
+
+  overlay: { flex: 1, backgroundColor: 'rgba(11,23,39,0.7)', alignItems: 'center', justifyContent: 'center', padding: 32 },
+  celebrateCard: { backgroundColor: '#fff', borderRadius: 24, padding: 28, alignItems: 'center', gap: 10, alignSelf: 'stretch' },
+  celebrateTitle: { fontSize: 22, fontWeight: '800', color: umotor.ink },
+  celebrateSub: { color: umotor.sub, textAlign: 'center', fontSize: 13 },
   scoreWrap: { alignItems: 'center', marginTop: 8 },
-  scoreValue: { fontSize: 56, fontWeight: '800', color: colors.accent },
+  scoreValue: { fontSize: 56, fontWeight: '800', color: '#00a86b' },
   scoreDelta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  scoreDeltaText: { color: colors.accent, fontWeight: '800' },
-  pointsTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#fdf3e3',
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    marginTop: 4,
-  },
+  scoreDeltaText: { color: '#00a86b', fontWeight: '800' },
+  pointsTag: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#fdf3e3', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7, marginTop: 4 },
   pointsText: { color: '#9a6700', fontWeight: '800', fontSize: 13 },
-  celebrateBtn: {
-    marginTop: 12,
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingHorizontal: 24,
-    paddingVertical: 13,
-    alignSelf: 'stretch',
-    alignItems: 'center',
-  },
+  celebrateBtn: { marginTop: 12, backgroundColor: umotor.primary, borderRadius: 12, paddingHorizontal: 24, paddingVertical: 13, alignSelf: 'stretch', alignItems: 'center' },
   celebrateBtnText: { color: '#fff', fontWeight: '700' },
-  celebrateClose: { color: '#98a2b3', marginTop: 8, fontWeight: '600' },
+  celebrateClose: { color: umotor.faint, marginTop: 8, fontWeight: '600' },
 });

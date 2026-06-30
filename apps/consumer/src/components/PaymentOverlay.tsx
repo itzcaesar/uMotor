@@ -17,16 +17,17 @@ const STAGE_COPY: Record<AstraPayStage, string> = {
 };
 
 /**
- * Drives a payment through the shared AstraPay mock while exposing its staged
- * progress for <PaymentOverlay>. Lets every checkout flow share one branded,
- * consistent payment experience instead of an ad-hoc inline spinner.
+ * Drives a payment through the live AstraPay SNAP sandbox while exposing its
+ * staged progress for <PaymentOverlay>. Lets every checkout flow share one
+ * branded, consistent payment experience instead of an ad-hoc inline spinner.
  */
 export function usePayment() {
   const [stage, setStage] = useState<AstraPayStage | null>(null);
   const pay = useCallback(
     (amount: number, description: string, opts?: { userId?: string }): Promise<AstraPayResult> => {
       setStage('connecting');
-      // Live SNAP when EXPO_PUBLIC_ASTRAPAY_LIVE=1; mock otherwise (demo default).
+      // Live AstraPay SNAP (real sandbox) by default; mock only if explicitly
+      // disabled via EXPO_PUBLIC_ASTRAPAY_LIVE=0 for offline dev.
       return payAstraPaySmart(amount, description, { onStage: setStage, userId: opts?.userId }).catch((e) => {
         setStage(null); // dismiss the overlay so the caller can surface the error
         throw e;
@@ -62,9 +63,9 @@ export function PaymentOverlay({ stage, amount }: { stage: AstraPayStage | null;
                 <Ionicons name="checkmark" size={34} color="#fff" />
               </View>
             ) : (
-              <ActivityIndicator size="large" color={colors.primary} />
+              <ActivityIndicator size="large" color={'#0e4da4'} />
             )}
-            <Text style={[styles.stageText, done && { color: colors.accent }]}>
+            <Text style={[styles.stageText, done && { color: '#00a86b' }]}>
               {stage ? STAGE_COPY[stage] : ''}
             </Text>
             {amount != null && <Text style={styles.amount}>{formatRp(amount)}</Text>}
@@ -98,17 +99,17 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: colors.primary,
+    backgroundColor: '#0e4da4',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  brand: { fontWeight: '800', color: colors.primary, fontSize: 15 },
+  brand: { fontWeight: '800', color: '#0e4da4', fontSize: 15 },
   body: { alignItems: 'center', gap: 12, paddingVertical: 20 },
   check: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: colors.accent,
+    backgroundColor: '#00a86b',
     alignItems: 'center',
     justifyContent: 'center',
   },

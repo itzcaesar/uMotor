@@ -1,5 +1,4 @@
 import {
-  Pressable,
   Text,
   View,
   StyleSheet,
@@ -12,9 +11,141 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
 import { colors, healthColor, STATUS_LABELS, statusColor, type BookingStatus } from '@umotor/shared';
 import { selectCount, useCart } from '@/lib/cart';
+import { PressableScale } from '@/components/motion';
 import { safeBack } from '@/lib/nav';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
+
+type IconName = keyof typeof Ionicons.glyphMap;
+
+// ── uMotor / AstraPay palette ──────────────────────────────────────────────
+// Lifted verbatim from the uMotor Figma (file 2tVEqoLxfbECiwRbVDw7bc). The blue
+// is the brand: wordmark, section titles, CTAs, active nav. Kept local to the
+// consumer app — the shared `colors` (green) stays untouched for other apps.
+export const umotor = {
+  primary: '#0e4da4', // deep brand blue — titles, CTAs, FAB, active nav, icons
+  bright: '#1781ff', // bright accent blue (illustrations / highlights)
+  heroDark: '#1c4e93', // hero/summary base + Moto Points panel + mountains
+  heroMid: '#2b75dc', // balance-card highlight band
+  tile: '#d3e6ff', // light-blue action-tile / icon background
+  tileBorder: '#c4dcfb',
+  bg: '#f3f6fb', // app background
+  ink: '#0b1727', // near-black text
+  sub: '#667085', // secondary text
+  faint: '#98a2b3', // tertiary text / hints
+  line: '#e5e9f0', // card borders / dividers
+  inactive: '#b0b0b0', // inactive nav label
+  onHero: '#cfe0f7', // secondary text on the blue hero
+  onHeroLine: 'rgba(255,255,255,0.18)',
+};
+
+/**
+ * Moto Health *score* colour (0–100, higher = healthier). Distinct from the
+ * shared `healthColor(pctUsed)` which is keyed on wear %. Matches the Figma
+ * "Moto Health Color Parameter": green → lime → amber → red.
+ */
+export function healthScoreColor(score: number): string {
+  if (score >= 80) return '#4ecb9b'; // green (Figma)
+  if (score >= 60) return '#c0cb4e'; // lime (Figma)
+  return '#cb5a4e'; // red (Figma)
+}
+
+/** Per-bike Moto Health score (0–100). Heuristic tuned to the demo (oil 80% → 76). */
+export function motoHealthScore(pctUsedList: number[]): number {
+  if (pctUsedList.length === 0) return 100;
+  const worst = Math.max(...pctUsedList, 0);
+  return Math.max(0, Math.min(100, Math.round(100 - 0.3 * worst)));
+}
+
+/** Navy section heading with a trailing hairline rule (Figma: "Moto Reminders"). */
+export function SectionTitle({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
+  return (
+    <View style={[styles.sectionTitleRow, style]}>
+      <Text style={styles.sectionTitleText}>{children}</Text>
+      <View style={styles.sectionTitleRule} />
+    </View>
+  );
+}
+
+/** Light-blue rounded action tile: blue icon in a circle/square + label below. */
+export function ActionTile({
+  icon,
+  label,
+  onPress,
+  width,
+}: {
+  icon: IconName;
+  label: string;
+  onPress?: () => void;
+  width?: number | string;
+}) {
+  return (
+    <PressableScale
+      style={[styles.actionTile, width != null && ({ width } as ViewStyle)]}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
+      <View style={styles.actionIconWrap}>
+        <Ionicons name={icon} size={26} color={umotor.primary} />
+      </View>
+      <Text style={styles.actionLabel} numberOfLines={1}>
+        {label}
+      </Text>
+    </PressableScale>
+  );
+}
+
+/** Primary blue pill button (Figma CTA). */
+export function PrimaryButton({
+  label,
+  onPress,
+  disabled,
+  style,
+  small,
+}: {
+  label: string;
+  onPress?: () => void;
+  disabled?: boolean;
+  style?: StyleProp<ViewStyle>;
+  small?: boolean;
+}) {
+  return (
+    <PressableScale
+      style={[styles.primaryBtn, small && styles.primaryBtnSmall, disabled && styles.primaryBtnDisabled, style]}
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
+      <Text style={[styles.primaryBtnText, small && styles.primaryBtnTextSmall]}>{label}</Text>
+    </PressableScale>
+  );
+}
+
+/** Filter chip — blue when active, light outline when not. */
+export function Pill({ label, active, onPress }: { label: string; active?: boolean; onPress?: () => void }) {
+  return (
+    <PressableScale
+      style={[styles.pill, active ? styles.pillActive : styles.pillIdle]}
+      onPress={onPress}
+      accessibilityRole="button"
+    >
+      <Text style={[styles.pillText, active ? styles.pillTextActive : styles.pillTextIdle]}>{label}</Text>
+    </PressableScale>
+  );
+}
+
+/** Square Moto-Health badge: stacked "Moto Health" label + big score number. */
+export function HealthScoreBadge({ score, size = 64 }: { score: number; size?: number }) {
+  const bg = healthScoreColor(score);
+  return (
+    <View style={[styles.scoreBadge, { width: size, height: size, backgroundColor: bg }]}>
+      <Text style={styles.scoreBadgeLabel}>Moto Health</Text>
+      <Text style={styles.scoreBadgeNum}>{score}</Text>
+    </View>
+  );
+}
 
 // ── Responsive system ────────────────────────────────────────────────────
 // Single source of truth for phone/tablet layout. Keyed off the SHORTEST screen
@@ -85,13 +216,13 @@ export function Card({ children, style }: { children: React.ReactNode; style?: S
 /** Header close (X) button for modal screens that lack a native back chevron. */
 export function HeaderCloseButton() {
   return (
-    <Pressable
+    <PressableScale
       style={styles.headerClose}
       onPress={() => safeBack()}
       hitSlop={8}
     >
-      <Ionicons name="close" size={24} color={colors.primary} />
-    </Pressable>
+      <Ionicons name="close" size={24} color={umotor.primary} />
+    </PressableScale>
   );
 }
 
@@ -101,9 +232,9 @@ export function HeaderCloseButton() {
  */
 export function HeaderBackButton({ fallback }: { fallback?: Href }) {
   return (
-    <Pressable style={styles.headerBack} onPress={() => safeBack(fallback)} hitSlop={8}>
-      <Ionicons name="arrow-back" size={24} color={colors.primary} />
-    </Pressable>
+    <PressableScale style={styles.headerBack} onPress={() => safeBack(fallback)} hitSlop={8}>
+      <Ionicons name="arrow-back" size={24} color={umotor.primary} />
+    </PressableScale>
   );
 }
 
@@ -126,20 +257,20 @@ export function NotificationsHeaderButton() {
   });
   const count = unread.data ?? 0;
   return (
-    <Pressable
+    <PressableScale
       style={styles.cartBtn}
       onPress={() => router.push('/notifications')}
       hitSlop={8}
       accessibilityRole="button"
       accessibilityLabel={count > 0 ? `Notifikasi, ${count} belum dibaca` : 'Notifikasi'}
     >
-      <Ionicons name="notifications-outline" size={24} color={colors.primary} />
+      <Ionicons name="notifications-outline" size={24} color={umotor.primary} />
       {count > 0 && (
         <View style={styles.cartBadge}>
           <Text style={styles.cartBadgeText}>{count > 9 ? '9+' : count}</Text>
         </View>
       )}
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -147,14 +278,14 @@ export function NotificationsHeaderButton() {
 export function CartHeaderButton() {
   const count = useCart(selectCount);
   return (
-    <Pressable style={styles.cartBtn} onPress={() => router.push('/cart')} hitSlop={8}>
-      <Ionicons name="cart-outline" size={24} color={colors.primary} />
+    <PressableScale style={styles.cartBtn} onPress={() => router.push('/cart')} hitSlop={8}>
+      <Ionicons name="cart-outline" size={24} color={umotor.primary} />
       {count > 0 && (
         <View style={styles.cartBadge}>
           <Text style={styles.cartBadgeText}>{count}</Text>
         </View>
       )}
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -167,13 +298,13 @@ export function QtyStepper({
 }) {
   return (
     <View style={styles.stepper}>
-      <Pressable style={styles.stepBtn} onPress={() => onChange(qty - 1)} hitSlop={8}>
-        <Ionicons name="remove" size={16} color={colors.primary} />
-      </Pressable>
+      <PressableScale style={styles.stepBtn} onPress={() => onChange(qty - 1)} hitSlop={8}>
+        <Ionicons name="remove" size={16} color={umotor.primary} />
+      </PressableScale>
       <Text style={styles.stepQty}>{qty}</Text>
-      <Pressable style={styles.stepBtn} onPress={() => onChange(qty + 1)} hitSlop={8}>
-        <Ionicons name="add" size={16} color={colors.primary} />
-      </Pressable>
+      <PressableScale style={styles.stepBtn} onPress={() => onChange(qty + 1)} hitSlop={8}>
+        <Ionicons name="add" size={16} color={umotor.primary} />
+      </PressableScale>
     </View>
   );
 }
@@ -213,6 +344,51 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e5e9f0',
   },
+
+  // Section heading + hairline rule
+  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 4 },
+  sectionTitleText: { color: umotor.primary, fontSize: 18, fontWeight: '800' },
+  sectionTitleRule: { flex: 1, height: 1, backgroundColor: umotor.tileBorder },
+
+  // Action tile
+  actionTile: { alignItems: 'center', gap: 8 },
+  actionIconWrap: {
+    width: '100%',
+    aspectRatio: 1,
+    maxWidth: 84,
+    borderRadius: 18,
+    backgroundColor: umotor.tile,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionLabel: { color: umotor.ink, fontSize: 13, fontWeight: '600', textAlign: 'center' },
+
+  // Primary button
+  primaryBtn: {
+    backgroundColor: umotor.primary,
+    borderRadius: 14,
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryBtnSmall: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 999 },
+  primaryBtnDisabled: { opacity: 0.5 },
+  primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  primaryBtnTextSmall: { fontSize: 13 },
+
+  // Pill / chip
+  pill: { borderRadius: 999, paddingHorizontal: 16, paddingVertical: 8 },
+  pillActive: { backgroundColor: umotor.primary },
+  pillIdle: { backgroundColor: '#fff', borderWidth: 1, borderColor: umotor.line },
+  pillText: { fontSize: 13, fontWeight: '700' },
+  pillTextActive: { color: '#fff' },
+  pillTextIdle: { color: umotor.sub },
+
+  // Moto-Health score badge
+  scoreBadge: { borderRadius: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  scoreBadgeLabel: { color: 'rgba(255,255,255,0.92)', fontSize: 9, fontWeight: '700' },
+  scoreBadgeNum: { color: '#fff', fontSize: 26, fontWeight: '800', lineHeight: 30 },
   healthRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
   healthLabel: { width: HEALTH_LABEL_W, fontSize: 12, color: '#667085' },
   track: { flex: 1, height: 6, borderRadius: 3, backgroundColor: '#eef1f6', overflow: 'hidden' },
@@ -230,7 +406,7 @@ const styles = StyleSheet.create({
     minWidth: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: colors.danger,
+    backgroundColor: '#e0543f',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 4,
