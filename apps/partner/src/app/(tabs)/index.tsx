@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   FlatList,
-  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
@@ -12,8 +11,17 @@ import {
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { INSTALL_SERVICE_CODE, formatRp, type Booking, type BookingStatus } from '@umotor/shared';
-import { Card, ErrorState, StatusBadge, colors, useIsWide } from '@/components/ui';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  INSTALL_SERVICE_CODE,
+  formatRp,
+  statusColor,
+  type Booking,
+  type BookingStatus,
+} from '@umotor/shared';
+import { Card, ErrorState, SectionTitle, StatusBadge, astra, colors, useIsWide } from '@/components/ui';
+import { GreetingBar } from '@/components/GreetingBar';
+import { FadeInView, PressableScale } from '@/components/motion';
 import { notify } from '@/lib/dialog';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
@@ -28,6 +36,7 @@ export type InboxRow = Booking & {
 export default function Inbox() {
   const workshopId = useSession((s) => s.workshopId);
   const wide = useIsWide();
+  const insets = useSafeAreaInsets();
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
 
@@ -78,28 +87,31 @@ export default function Inbox() {
     });
   }, [inbox.data, q]);
 
-  const searchHeader = (
-    <View style={styles.searchWrap}>
-      <Ionicons name="search" size={16} color="#98a2b3" />
-      <TextInput
-        style={styles.searchInput}
-        placeholder="Cari nama atau plat…"
-        placeholderTextColor="#98a2b3"
-        value={search}
-        onChangeText={setSearch}
-        autoCapitalize="characters"
-        autoCorrect={false}
-      />
-      {search.length > 0 && (
-        <Pressable
-          onPress={() => setSearch('')}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel="Hapus pencarian"
-        >
-          <Ionicons name="close-circle" size={18} color="#cbd5e1" />
-        </Pressable>
-      )}
+  const header = (
+    <View style={styles.headerWrap}>
+      <SectionTitle>Inbox</SectionTitle>
+      <View style={styles.searchWrap}>
+        <Ionicons name="search" size={16} color={astra.faint} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Cari nama atau plat…"
+          placeholderTextColor={astra.faint}
+          value={search}
+          onChangeText={setSearch}
+          autoCapitalize="characters"
+          autoCorrect={false}
+        />
+        {search.length > 0 && (
+          <PressableScale
+            onPress={() => setSearch('')}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Hapus pencarian"
+          >
+            <Ionicons name="close-circle" size={18} color="#cbd5e1" />
+          </PressableScale>
+        )}
+      </View>
     </View>
   );
 
@@ -109,63 +121,88 @@ export default function Inbox() {
       numColumns={wide ? 2 : 1}
       columnWrapperStyle={wide ? styles.columns : undefined}
       style={styles.list}
-      contentContainerStyle={[styles.content, wide && styles.contentWide]}
+      contentContainerStyle={[
+        styles.content,
+        { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 96 },
+        wide && styles.contentWide,
+      ]}
       data={rows}
       keyExtractor={(b) => b.id}
-      ListHeaderComponent={(inbox.data?.length ?? 0) > 0 || q ? searchHeader : null}
+      ListHeaderComponent={
+        <>
+          <GreetingBar stats />
+          {(inbox.data?.length ?? 0) > 0 || q ? header : null}
+        </>
+      }
       refreshControl={
         <RefreshControl refreshing={inbox.isRefetching} onRefresh={() => inbox.refetch()} />
       }
-      renderItem={({ item }) => (
-        <Pressable
-          style={styles.cell}
-          accessibilityRole="button"
-          accessibilityLabel={`Lihat booking ${item.users?.name ?? 'pelanggan'}`}
-          onPress={() => router.push({ pathname: '/booking/[id]', params: { id: item.id } })}
-        >
-          <Card style={styles.cellCard}>
-            <View style={styles.row}>
-              <Text style={styles.customer}>{item.users?.name ?? '—'}</Text>
-              <StatusBadge status={item.status} />
-            </View>
-            <Text style={styles.bike}>
-              {item.motorcycles
-                ? `${item.motorcycles.brand} ${item.motorcycles.model} · ${item.motorcycles.plate}`
-                : '—'}
-            </Text>
-            <View style={styles.row}>
-              <Text style={styles.service}>
-                {item.services?.name ?? '—'}
-                {item.services ? ` · ${item.services.duration_min} menit` : ''}
-              </Text>
-              <Text style={styles.slot}>
-                {item.slots
-                  ? new Date(item.slots.slot_at).toLocaleString('id-ID', {
-                      weekday: 'short',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })
-                  : item.is_home_service
-                    ? 'Home service'
-                    : '—'}
-              </Text>
-            </View>
-            <Text style={styles.deposit}>Deposit lunas · {formatRp(item.deposit_amount)}</Text>
-            {item.status === 'pending' && (
-              <Pressable
-                style={[styles.acceptBtn, accept.isPending && styles.acceptBusy]}
-                disabled={accept.isPending}
-                accessibilityRole="button"
-                accessibilityLabel="Terima booking"
-                onPress={() => accept.mutate(item.id)}
-              >
-                <Ionicons name="checkmark" size={16} color="#fff" />
-                <Text style={styles.acceptText}>Terima</Text>
-              </Pressable>
-            )}
-          </Card>
-        </Pressable>
-      )}
+      renderItem={({ item, index }) => {
+        const tint = statusColor[item.status];
+        const slotTime = item.slots
+          ? new Date(item.slots.slot_at).toLocaleTimeString('id-ID', {
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+          : null;
+        const badgeLabel = item.slots ? 'Slot' : item.is_home_service ? 'Layanan' : '';
+        const badgeValue = item.slots ? slotTime : item.is_home_service ? 'Home' : '—';
+        return (
+          <FadeInView index={index} style={styles.cell}>
+            <PressableScale
+              style={styles.cell}
+              accessibilityRole="button"
+              accessibilityLabel={`Lihat booking ${item.users?.name ?? 'pelanggan'}`}
+              onPress={() => router.push({ pathname: '/booking/[id]', params: { id: item.id } })}
+            >
+              <Card style={styles.cellCard}>
+                <View style={styles.cardRow}>
+                  {/* Colored slot/status badge */}
+                  <View style={[styles.badge, { backgroundColor: tint }]}>
+                    {badgeLabel ? <Text style={styles.badgeLabel}>{badgeLabel}</Text> : null}
+                    <Text style={styles.badgeValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                      {badgeValue}
+                    </Text>
+                  </View>
+
+                  {/* Booking details */}
+                  <View style={styles.info}>
+                    <View style={styles.topRow}>
+                      <Text style={styles.customer} numberOfLines={1}>
+                        {item.users?.name ?? '—'}
+                      </Text>
+                      <StatusBadge status={item.status} />
+                    </View>
+                    <Text style={styles.bike} numberOfLines={1}>
+                      {item.motorcycles
+                        ? `${item.motorcycles.brand} ${item.motorcycles.model} · ${item.motorcycles.plate}`
+                        : '—'}
+                    </Text>
+                    <Text style={styles.service} numberOfLines={1}>
+                      {item.services?.name ?? '—'}
+                      {item.services ? ` · ${item.services.duration_min} menit` : ''}
+                    </Text>
+                    <Text style={styles.deposit}>Deposit lunas · {formatRp(item.deposit_amount)}</Text>
+                  </View>
+                </View>
+
+                {item.status === 'pending' && (
+                  <PressableScale
+                    style={[styles.acceptBtn, accept.isPending && styles.acceptBusy]}
+                    disabled={accept.isPending}
+                    accessibilityRole="button"
+                    accessibilityLabel="Terima booking"
+                    onPress={() => accept.mutate(item.id)}
+                  >
+                    <Ionicons name="checkmark" size={16} color="#fff" />
+                    <Text style={styles.acceptText}>Terima</Text>
+                  </PressableScale>
+                )}
+              </Card>
+            </PressableScale>
+          </FadeInView>
+        );
+      }}
       ListEmptyComponent={
         inbox.isError ? (
           <ErrorState onRetry={() => inbox.refetch()} />
@@ -184,19 +221,12 @@ export default function Inbox() {
 }
 
 const styles = StyleSheet.create({
-  list: { flex: 1, backgroundColor: '#f3f6fb' },
-  content: { padding: 16, gap: 12 },
+  list: { flex: 1, backgroundColor: astra.bg },
+  content: { paddingHorizontal: 16, paddingBottom: 32, gap: 12 },
   contentWide: { maxWidth: 1000, width: '100%', alignSelf: 'center' },
   columns: { gap: 12 },
-  cell: { flex: 1 },
-  cellCard: { flex: 1 },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  customer: { fontSize: 16, fontWeight: '700', color: '#0b1727' },
-  bike: { marginTop: 4, color: '#667085' },
-  service: { marginTop: 8, color: '#0b1727', fontWeight: '600' },
-  slot: { marginTop: 8, color: '#667085', fontSize: 13 },
-  deposit: { marginTop: 8, color: '#00a86b', fontSize: 12, fontWeight: '700' },
-  empty: { textAlign: 'center', color: '#98a2b3', marginTop: 48, paddingHorizontal: 24 },
+
+  headerWrap: { gap: 12, marginBottom: 0 },
   searchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -204,21 +234,54 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#e5e9f0',
+    borderColor: astra.line,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  searchInput: { flex: 1, color: '#0b1727', fontSize: 14, padding: 0 },
+  searchInput: { flex: 1, color: astra.ink, fontSize: 14, padding: 0 },
+
+  cell: { flex: 1 },
+  // Garasi-style light-blue booking card
+  cellCard: {
+    flex: 1,
+    backgroundColor: '#eaf1fc',
+    borderColor: '#dbe8fb',
+    padding: 12,
+    gap: 0,
+  },
+  cardRow: { flexDirection: 'row', gap: 12, alignItems: 'center' },
+
+  // Colored square badge (status-tinted)
+  badge: {
+    width: 56,
+    height: 56,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeLabel: { color: 'rgba(255,255,255,0.85)', fontSize: 9, fontWeight: '700' },
+  badgeValue: { color: '#fff', fontSize: 15, fontWeight: '800' },
+
+  info: { flex: 1, gap: 2 },
+  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  customer: { flex: 1, fontSize: 15, fontWeight: '800', color: astra.ink },
+  bike: { color: astra.sub, fontSize: 13 },
+  service: { color: astra.ink, fontSize: 13, fontWeight: '600' },
+  deposit: { color: '#00a86b', fontSize: 12, fontWeight: '700', marginTop: 1 },
+
   acceptBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: colors.accent,
-    borderRadius: 10,
-    paddingVertical: 10,
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 11,
     marginTop: 12,
   },
   acceptBusy: { opacity: 0.6 },
   acceptText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+
+  empty: { textAlign: 'center', color: astra.faint, marginTop: 48, paddingHorizontal: 24 },
 });

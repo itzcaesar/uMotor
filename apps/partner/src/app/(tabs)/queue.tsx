@@ -1,8 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import { Card, ErrorState, StatusBadge, colors, useIsWide } from '@/components/ui';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { statusColor } from '@umotor/shared';
+import { Pill, StatusBadge, ErrorState, astra, colors, useIsWide } from '@/components/ui';
+import { GreetingBar } from '@/components/GreetingBar';
+import { FadeInView, PressableScale } from '@/components/motion';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 import type { InboxRow } from './index';
@@ -22,6 +27,7 @@ function elapsedLabel(iso: string): string {
 export default function Queue() {
   const workshopId = useSession((s) => s.workshopId);
   const wide = useIsWide();
+  const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState<Filter>('all');
 
   const queue = useQuery({
@@ -80,17 +86,7 @@ export default function Queue() {
     all.length > 0 ? (
       <View style={styles.chips}>
         {chips.map((c) => (
-          <Pressable
-            key={c.key}
-            style={[styles.chip, filter === c.key && styles.chipActive]}
-            onPress={() => setFilter(c.key)}
-            accessibilityRole="radio"
-            accessibilityState={{ selected: filter === c.key }}
-          >
-            <Text style={[styles.chipText, filter === c.key && styles.chipTextActive]}>
-              {c.label}
-            </Text>
-          </Pressable>
+          <Pill key={c.key} label={c.label} active={filter === c.key} onPress={() => setFilter(c.key)} />
         ))}
       </View>
     ) : null;
@@ -101,50 +97,79 @@ export default function Queue() {
       numColumns={wide ? 2 : 1}
       columnWrapperStyle={wide ? styles.columns : undefined}
       style={styles.list}
-      contentContainerStyle={[styles.content, wide && styles.contentWide]}
+      contentContainerStyle={[
+        styles.content,
+        { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 96 },
+        wide && styles.contentWide,
+      ]}
       data={rows}
       keyExtractor={(b) => b.id}
-      ListHeaderComponent={header}
+      ListHeaderComponent={
+        <>
+          <GreetingBar stats />
+          {header}
+        </>
+      }
       refreshControl={
         <RefreshControl refreshing={queue.isRefetching} onRefresh={() => queue.refetch()} />
       }
-      renderItem={({ item }) => {
+      renderItem={({ item, index }) => {
         const working = item.status === 'checked_in' || item.status === 'in_progress';
+        const inProgress = item.status === 'in_progress';
+        const slotTime = item.slots
+          ? new Date(item.slots.slot_at).toLocaleTimeString('id-ID', {
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+          : 'Home';
         return (
-          <Pressable
-            style={styles.cell}
-            accessibilityRole="button"
-            accessibilityLabel={`Lihat booking ${item.users?.name ?? 'pelanggan'}`}
-            onPress={() => router.push({ pathname: '/booking/[id]', params: { id: item.id } })}
-          >
-            <Card style={styles.cellCard}>
-              <View style={styles.row}>
-                <Text style={styles.time}>
-                  {item.slots
-                    ? new Date(item.slots.slot_at).toLocaleTimeString('id-ID', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })
-                    : 'Home'}
-                </Text>
-                <StatusBadge status={item.status} />
-              </View>
-              <Text style={styles.customer}>{item.users?.name ?? '—'}</Text>
-              <Text style={styles.meta}>
-                {item.motorcycles ? `${item.motorcycles.model} · ${item.motorcycles.plate}` : '—'} ·{' '}
-                {item.services?.name ?? '—'}
-              </Text>
-              {working && (
-                <View style={styles.elapsed}>
-                  <View style={styles.elapsedDot} />
-                  <Text style={styles.elapsedText}>
-                    {item.status === 'in_progress' ? 'Dikerjakan' : 'Check-in'} ·{' '}
-                    {elapsedLabel(item.updated_at)}
+          <FadeInView index={index} style={styles.cell}>
+            <PressableScale
+              style={styles.cell}
+              accessibilityRole="button"
+              accessibilityLabel={`Lihat booking ${item.users?.name ?? 'pelanggan'}`}
+              onPress={() => router.push({ pathname: '/booking/[id]', params: { id: item.id } })}
+            >
+              <View style={styles.card}>
+                {/* LEFT — colored slot-time badge */}
+                <View style={[styles.badge, { backgroundColor: statusColor[item.status] }]}>
+                  <Text style={styles.badgeLabel}>Slot</Text>
+                  <Text style={styles.badgeTime} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                    {slotTime}
                   </Text>
                 </View>
-              )}
-            </Card>
-          </Pressable>
+
+                {/* MIDDLE — customer, status, bike/service, elapsed */}
+                <View style={styles.body}>
+                  <View style={styles.headRow}>
+                    <Text style={styles.customer} numberOfLines={1}>
+                      {item.users?.name ?? '—'}
+                    </Text>
+                    <StatusBadge status={item.status} />
+                  </View>
+                  <Text style={styles.meta} numberOfLines={1}>
+                    {item.motorcycles ? `${item.motorcycles.model} · ${item.motorcycles.plate}` : '—'} ·{' '}
+                    {item.services?.name ?? '—'}
+                  </Text>
+                  {working && (
+                    <View style={styles.elapsed}>
+                      <View
+                        style={[
+                          styles.elapsedDot,
+                          { backgroundColor: inProgress ? astra.heroMid : colors.warning },
+                        ]}
+                      />
+                      <Text style={styles.elapsedText}>
+                        {inProgress ? 'Dikerjakan' : 'Check-in'} · {elapsedLabel(item.updated_at)}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                <Ionicons name="chevron-forward" size={18} color={astra.faint} />
+              </View>
+            </PressableScale>
+          </FadeInView>
         );
       }}
       ListEmptyComponent={
@@ -165,38 +190,42 @@ export default function Queue() {
 }
 
 const styles = StyleSheet.create({
-  list: { flex: 1, backgroundColor: '#f3f6fb' },
+  list: { flex: 1, backgroundColor: astra.bg },
   content: { padding: 16, gap: 12 },
   contentWide: { maxWidth: 1000, width: '100%', alignSelf: 'center' },
   columns: { gap: 12 },
   cell: { flex: 1 },
-  cellCard: { flex: 1 },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  time: { fontSize: 18, fontWeight: '800', color: '#0b1727' },
-  customer: { marginTop: 6, fontSize: 15, fontWeight: '600', color: '#0b1727' },
-  meta: { marginTop: 2, color: '#667085', fontSize: 13 },
-  empty: { textAlign: 'center', color: '#98a2b3', marginTop: 48 },
-  chips: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  chip: {
-    backgroundColor: '#fff',
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#e5e9f0',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { color: '#667085', fontWeight: '700', fontSize: 13 },
-  chipTextActive: { color: '#fff' },
-  elapsed: {
+
+  // Garasi-style light-blue queue card
+  card: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 10,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#eef1f6',
+    gap: 12,
+    backgroundColor: '#eaf1fc',
+    borderRadius: 16,
+    padding: 12,
   },
-  elapsedDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.warning },
-  elapsedText: { color: '#667085', fontSize: 12, fontWeight: '600' },
+  badge: {
+    width: 56,
+    height: 56,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeLabel: { color: '#fff', fontSize: 10, fontWeight: '700', opacity: 0.85 },
+  badgeTime: { color: '#fff', fontSize: 18, fontWeight: '800' },
+
+  body: { flex: 1, gap: 3 },
+  headRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  customer: { flex: 1, fontSize: 15, fontWeight: '800', color: astra.ink },
+  meta: { color: astra.sub, fontSize: 13 },
+
+  elapsed: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
+  elapsedDot: { width: 7, height: 7, borderRadius: 4 },
+  elapsedText: { color: astra.sub, fontSize: 12, fontWeight: '600' },
+
+  empty: { textAlign: 'center', color: astra.faint, marginTop: 48 },
+  chips: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
 });

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -16,7 +17,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import type { Workshop, WorkshopType } from '@umotor/shared';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Card, colors, ErrorState, useResponsive } from '@/components/ui';
+import { Card, SectionTitle, astra, colors, ErrorState, figAssets, useResponsive } from '@/components/ui';
 import { confirmDialog, notify } from '@/lib/dialog';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
@@ -114,7 +115,7 @@ export default function Profile() {
   if (q.isLoading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color={colors.accent} />
+        <ActivityIndicator color={astra.primary} />
         <Text style={styles.muted}>Memuat profil…</Text>
       </View>
     );
@@ -128,6 +129,8 @@ export default function Profile() {
   }
 
   const w = q.data;
+  const typeLabel = TYPES.find((t) => t.key === w.type)?.label ?? 'Bengkel Umum';
+  const tierLabel = w.tier === 'premium' ? 'Premium' : 'Basic';
 
   return (
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -139,10 +142,26 @@ export default function Profile() {
         ]}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Read-only identity */}
+        {/* Blue identity header (Figma "Profile" card) */}
+        <View style={styles.identity}>
+          <View style={styles.identityGlow} pointerEvents="none" />
+          <View style={styles.identityText}>
+            <Text style={styles.identityName} numberOfLines={2}>
+              {w.name}
+            </Text>
+            <Text style={styles.identitySub} numberOfLines={1}>
+              {typeLabel} · Tier {tierLabel}
+            </Text>
+          </View>
+          <Image source={figAssets.icGarage} style={styles.identityIllus} resizeMode="contain" />
+        </View>
+
+        {/* Read-only stats — blue-accented summary cards */}
         <Card style={styles.statRow}>
           <Stat icon="star" tint="#f5a623" label="Rating" value={Number(w.rating).toFixed(1)} />
-          <Stat icon="ribbon" tint={colors.primary} label="Tier" value={w.tier === 'premium' ? 'Premium' : 'Basic'} />
+          <View style={styles.statDivider} />
+          <Stat icon="ribbon" tint={astra.primary} label="Tier" value={tierLabel} />
+          <View style={styles.statDivider} />
           <Stat
             icon="navigate"
             tint={colors.accent}
@@ -152,8 +171,8 @@ export default function Profile() {
         </Card>
 
         {/* Editable profile */}
+        <SectionTitle>Profil bengkel</SectionTitle>
         <Card style={styles.card}>
-          <Text style={styles.cardTitle}>Profil bengkel</Text>
           <Field label="Nama bengkel" value={name} onChangeText={setName} placeholder="Nama bengkel" />
 
           <Text style={styles.label}>Jenis bengkel</Text>
@@ -181,7 +200,7 @@ export default function Profile() {
               value={priceMin}
               onChangeText={setPriceMin}
               keyboardType="number-pad"
-              placeholderTextColor="#98a2b3"
+              placeholderTextColor={astra.faint}
             />
             <Text style={styles.priceDash}>—</Text>
             <TextInput
@@ -189,22 +208,23 @@ export default function Profile() {
               value={priceMax}
               onChangeText={setPriceMax}
               keyboardType="number-pad"
-              placeholderTextColor="#98a2b3"
+              placeholderTextColor={astra.faint}
             />
           </View>
         </Card>
 
         {/* Home service */}
+        <SectionTitle>Layanan home service</SectionTitle>
         <Card style={styles.card}>
           <View style={styles.switchRow}>
             <View style={styles.switchText}>
-              <Text style={styles.switchTitle}>Layanan home service</Text>
+              <Text style={styles.switchTitle}>Aktifkan home service</Text>
               <Text style={styles.switchSub}>Mekanik datang ke lokasi pelanggan</Text>
             </View>
             <Switch
               value={homeService}
               onValueChange={setHomeService}
-              trackColor={{ true: colors.accent, false: '#cfd5df' }}
+              trackColor={{ true: astra.primary, false: '#cfd5df' }}
             />
           </View>
           {homeService && (
@@ -216,7 +236,7 @@ export default function Profile() {
                   value={homeFee}
                   onChangeText={setHomeFee}
                   keyboardType="number-pad"
-                  placeholderTextColor="#98a2b3"
+                  placeholderTextColor={astra.faint}
                 />
               </View>
               <View style={styles.homeField}>
@@ -226,7 +246,7 @@ export default function Profile() {
                   value={homeRadius}
                   onChangeText={setHomeRadius}
                   keyboardType="number-pad"
-                  placeholderTextColor="#98a2b3"
+                  placeholderTextColor={astra.faint}
                 />
               </View>
             </View>
@@ -283,7 +303,7 @@ function Field({
       <Text style={styles.label}>{label}</Text>
       <TextInput
         style={[styles.input, multiline && styles.inputMultiline]}
-        placeholderTextColor="#98a2b3"
+        placeholderTextColor={astra.faint}
         multiline={multiline}
         {...input}
       />
@@ -292,28 +312,56 @@ function Field({
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#f3f6fb' },
+  screen: { flex: 1, backgroundColor: astra.bg },
   content: { padding: 16, gap: 12, paddingBottom: 40 },
   contentWide: { maxWidth: 600, width: '100%', alignSelf: 'center' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 32 },
-  muted: { color: '#98a2b3', fontSize: 14 },
-  statRow: { flexDirection: 'row', justifyContent: 'space-around' },
-  stat: { alignItems: 'center', gap: 3 },
-  statValue: { fontSize: 18, fontWeight: '800', color: '#0b1727' },
-  statLabel: { fontSize: 11, color: '#667085' },
+  muted: { color: astra.faint, fontSize: 14 },
+
+  // Blue identity header (Figma "Profile" card)
+  identity: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: astra.heroDark,
+    borderRadius: 18,
+    paddingVertical: 18,
+    paddingHorizontal: 18,
+    overflow: 'hidden',
+    minHeight: 96,
+  },
+  identityGlow: {
+    position: 'absolute',
+    top: -70,
+    right: -40,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: astra.heroMid,
+    opacity: 0.55,
+  },
+  identityText: { flex: 1, gap: 4, zIndex: 1 },
+  identityName: { color: '#fff', fontSize: 22, fontWeight: '800', lineHeight: 27 },
+  identitySub: { color: astra.onHero, fontSize: 13, fontWeight: '600' },
+  identityIllus: { width: 76, height: 76, marginLeft: 8, zIndex: 1 },
+
+  statRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' },
+  statDivider: { width: 1, alignSelf: 'stretch', backgroundColor: astra.line, marginVertical: 4 },
+  stat: { flex: 1, alignItems: 'center', gap: 3 },
+  statValue: { fontSize: 18, fontWeight: '800', color: astra.ink },
+  statLabel: { fontSize: 11, color: astra.sub },
+
   card: { gap: 4 },
-  cardTitle: { fontSize: 15, fontWeight: '800', color: '#0b1727', marginBottom: 2 },
-  label: { fontWeight: '700', color: '#0b1727', marginTop: 10, marginBottom: 6, fontSize: 13 },
+  label: { fontWeight: '700', color: astra.ink, marginTop: 10, marginBottom: 6, fontSize: 13 },
   input: {
-    backgroundColor: '#f3f6fb',
+    backgroundColor: astra.bg,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 12,
     fontSize: 15,
     fontWeight: '600',
-    color: '#0b1727',
+    color: astra.ink,
     borderWidth: 1,
-    borderColor: '#e5e9f0',
+    borderColor: astra.line,
   },
   inputMultiline: { minHeight: 64, textAlignVertical: 'top' },
   typeRow: { flexDirection: 'row', gap: 10 },
@@ -322,20 +370,20 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
-    backgroundColor: '#f3f6fb',
+    backgroundColor: astra.bg,
     borderWidth: 1.5,
-    borderColor: '#e5e9f0',
+    borderColor: astra.line,
   },
-  typeActive: { borderColor: colors.accent, backgroundColor: '#eafaf2' },
-  typeLabel: { fontWeight: '800', color: '#0b1727', fontSize: 14 },
-  typeLabelActive: { color: '#067647' },
+  typeActive: { borderColor: astra.primary, backgroundColor: '#eef4fd' },
+  typeLabel: { fontWeight: '800', color: astra.ink, fontSize: 14 },
+  typeLabelActive: { color: astra.primary },
   priceRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   priceInput: { flex: 1 },
-  priceDash: { color: '#98a2b3', fontWeight: '700' },
+  priceDash: { color: astra.faint, fontWeight: '700' },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   switchText: { flex: 1, gap: 2 },
-  switchTitle: { fontWeight: '700', color: '#0b1727', fontSize: 14 },
-  switchSub: { color: '#667085', fontSize: 12 },
+  switchTitle: { fontWeight: '700', color: astra.ink, fontSize: 14 },
+  switchSub: { color: astra.sub, fontSize: 12 },
   homeFields: { flexDirection: 'row', gap: 12, marginTop: 4 },
   homeField: { flex: 1 },
   saveBtn: {
@@ -344,7 +392,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     marginTop: 4,
-    backgroundColor: colors.accent,
+    backgroundColor: astra.primary,
     borderRadius: 14,
     paddingVertical: 16,
   },

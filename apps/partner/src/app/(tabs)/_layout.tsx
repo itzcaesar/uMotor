@@ -3,13 +3,42 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
+import type { ColorValue } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withSpring } from 'react-native-reanimated';
 import { colors } from '@umotor/shared';
+import { astra } from '@/components/ui';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
+
+type IconName = keyof typeof Ionicons.glyphMap;
+const TAB_SPRING = { mass: 0.5, damping: 13, stiffness: 220 } as const;
+
+/** Tab-bar icon that springs (scale + lift) when its tab becomes active. */
+function AnimatedTabIcon({ name, color, focused }: { name: IconName; color: ColorValue; focused: boolean }) {
+  const reduced = useReducedMotion();
+  const active = useSharedValue(focused ? 1 : 0);
+
+  useEffect(() => {
+    active.value = focused ? 1 : 0;
+  }, [focused, active]);
+
+  const style = useAnimatedStyle(() => {
+    const v = reduced ? (focused ? 1 : 0) : active.value;
+    return { transform: [{ scale: withSpring(1 + v * 0.18, TAB_SPRING) }, { translateY: withSpring(-v * 2, TAB_SPRING) }] };
+  });
+
+  return (
+    <Animated.View style={style}>
+      <Ionicons name={name} color={color} size={23} />
+    </Animated.View>
+  );
+}
 
 export default function TabsLayout() {
   const workshopId = useSession((s) => s.workshopId);
   const qc = useQueryClient();
+  const insets = useSafeAreaInsets();
 
   // Pending-booking count drives the Inbox tab badge so the presenter sees new
   // work land without opening the tab. Realtime + polling keep it fresh.
@@ -61,16 +90,35 @@ export default function TabsLayout() {
     <Tabs
       initialRouteName="dashboard"
       screenOptions={{
-        tabBarActiveTintColor: colors.accent,
-        headerStyle: { backgroundColor: '#fff' },
-        headerTitleStyle: { fontWeight: '700' },
+        headerShown: false,
+        tabBarActiveTintColor: astra.primary,
+        tabBarInactiveTintColor: astra.inactive,
+        tabBarLabelStyle: { fontWeight: '700', fontSize: 10 },
+        tabBarStyle: {
+          position: 'absolute',
+          left: 14,
+          right: 14,
+          bottom: Math.max(insets.bottom, 8) + 6,
+          height: 70,
+          paddingTop: 0,
+          paddingBottom: 0,
+          borderRadius: 18,
+          borderTopWidth: 0,
+          backgroundColor: '#ffffff',
+          shadowColor: '#0b1727',
+          shadowOpacity: 0.12,
+          shadowRadius: 16,
+          shadowOffset: { width: 0, height: 6 },
+          elevation: 14,
+        },
+        tabBarItemStyle: { paddingVertical: 8 },
       }}
     >
       <Tabs.Screen
         name="dashboard"
         options={{
-          title: 'Dashboard',
-          tabBarIcon: ({ color, size }) => <Ionicons name="stats-chart" color={color} size={size} />,
+          title: 'Beranda',
+          tabBarIcon: ({ color, focused }) => <AnimatedTabIcon name="home" color={color} focused={focused} />,
         }}
       />
       <Tabs.Screen
@@ -79,35 +127,35 @@ export default function TabsLayout() {
           title: 'Inbox',
           tabBarBadge: pendingCount > 0 ? pendingCount : undefined,
           tabBarBadgeStyle: { backgroundColor: colors.danger },
-          tabBarIcon: ({ color, size }) => <Ionicons name="mail" color={color} size={size} />,
+          tabBarIcon: ({ color, focused }) => <AnimatedTabIcon name="mail" color={color} focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="queue"
         options={{
           title: 'Antrian',
-          tabBarIcon: ({ color, size }) => <Ionicons name="list" color={color} size={size} />,
+          tabBarIcon: ({ color, focused }) => <AnimatedTabIcon name="list" color={color} focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="orders"
         options={{
           title: 'Sparepart',
-          tabBarIcon: ({ color, size }) => <Ionicons name="cube" color={color} size={size} />,
+          tabBarIcon: ({ color, focused }) => <AnimatedTabIcon name="cube" color={color} focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="slots"
         options={{
           title: 'Jadwal',
-          tabBarIcon: ({ color, size }) => <Ionicons name="time" color={color} size={size} />,
+          tabBarIcon: ({ color, focused }) => <AnimatedTabIcon name="calendar" color={color} focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="earnings"
         options={{
           title: 'Pendapatan',
-          tabBarIcon: ({ color, size }) => <Ionicons name="cash" color={color} size={size} />,
+          tabBarIcon: ({ color, focused }) => <AnimatedTabIcon name="cash" color={color} focused={focused} />,
         }}
       />
     </Tabs>

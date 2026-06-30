@@ -122,7 +122,7 @@ export default function Signup() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.intro}>
-          <Ionicons name="storefront" size={22} color={colors.accent} />
+          <Ionicons name="storefront" size={22} color={colors.primary} />
           <Text style={styles.introText}>
             Daftarkan bengkel Anda dan langsung terima booking dari ekosistem uMotor.
           </Text>
@@ -195,7 +195,7 @@ export default function Signup() {
             <Switch
               value={homeService}
               onValueChange={setHomeService}
-              trackColor={{ true: colors.accent, false: '#cfd5df' }}
+              trackColor={{ true: colors.primary, false: '#cfd5df' }}
             />
           </View>
 
@@ -295,11 +295,11 @@ const styles = StyleSheet.create({
     borderColor: '#e5e9f0',
     gap: 2,
   },
-  typeActive: { borderColor: colors.accent, backgroundColor: '#eafaf2' },
+  typeActive: { borderColor: colors.primary, backgroundColor: '#eef4fd' },
   typeLabel: { fontWeight: '800', color: '#0b1727', fontSize: 14 },
-  typeLabelActive: { color: '#067647' },
+  typeLabelActive: { color: colors.primary },
   typeHint: { color: '#98a2b3', fontSize: 11 },
-  typeHintActive: { color: '#4a9b78' },
+  typeHintActive: { color: '#4a78c9' },
   priceRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   priceInput: { flex: 1 },
   priceDash: { color: '#98a2b3', fontWeight: '700' },
@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
   homeField: { flex: 1 },
   submit: {
     marginTop: 4,
-    backgroundColor: colors.accent,
+    backgroundColor: colors.primary,
     borderRadius: 14,
     paddingVertical: 16,
     alignItems: 'center',

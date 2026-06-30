@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -10,13 +10,13 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { router } from 'expo-router';
-import { useQueryClient } from '@tanstack/react-query';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
-import { formatRp } from '@umotor/shared';
+import { formatRp, type Sparepart } from '@umotor/shared';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card, colors, useResponsive } from '@/components/ui';
-import { notify } from '@/lib/dialog';
+import { confirmDialog, notify } from '@/lib/dialog';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 
@@ -56,8 +56,36 @@ export default function SparepartNew() {
   const insets = useSafeAreaInsets();
   const r = useResponsive();
 
+  // Edit mode: when an `id` is passed, load the product and prefill the form.
+  const { id } = useLocalSearchParams<{ id?: string }>();
+  const editing = !!id;
+  const existing = useQuery({
+    queryKey: ['sparepart', id],
+    enabled: editing,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('spareparts').select('*').eq('id', id!).single();
+      if (error) throw error;
+      return data as Sparepart;
+    },
+  });
+  useEffect(() => {
+    const p = existing.data;
+    if (!p) return;
+    setName(p.name);
+    setBrand(p.brand ?? '');
+    setCategory(p.category);
+    setPrice(String(p.price ?? ''));
+    setInstallFee(String(p.install_fee ?? ''));
+    setModels(p.compatible_models ?? []);
+  }, [existing.data]);
+
   const toggleModel = (m: string) =>
     setModels((cur) => (cur.includes(m) ? cur.filter((x) => x !== m) : [...cur, m]));
+
+  const goBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)/orders');
+  };
 
   const submit = async () => {
     if (busy) return;
@@ -67,25 +95,60 @@ export default function SparepartNew() {
     }
     setBusy(true);
     try {
-      const { error } = await supabase.from('spareparts').insert({
+      const payload = {
         name: name.trim(),
         brand: brand.trim() || null,
         category,
         price: Number(price) || 0,
         install_fee: Number(installFee) || 0,
-        workshop_id: workshopId,
         compatible_models: models,
-      });
-      if (error) throw error;
+      };
+      if (editing) {
+        const { error } = await supabase.from('spareparts').update(payload).eq('id', id!);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('spareparts')
+          .insert({ ...payload, workshop_id: workshopId });
+        if (error) throw error;
+      }
       qc.invalidateQueries({ queryKey: ['catalog'] });
-      notify('Produk terbit', `${name.trim()} kini dijual di marketplace uMotor.`);
-      if (router.canGoBack()) router.back();
-      else router.replace('/(tabs)/orders');
+      notify(
+        editing ? 'Produk diperbarui' : 'Produk terbit',
+        editing
+          ? `${name.trim()} berhasil diperbarui.`
+          : `${name.trim()} kini dijual di marketplace uMotor.`,
+      );
+      goBack();
     } catch (e) {
       notify('Gagal', e instanceof Error ? e.message : 'Coba lagi.');
     } finally {
       setBusy(false);
     }
+  };
+
+  const remove = () => {
+    if (!id || busy) return;
+    confirmDialog(
+      'Hapus produk?',
+      `${name.trim() || 'Produk ini'} akan dihapus dari etalase Anda.`,
+      async () => {
+        setBusy(true);
+        try {
+          const { error } = await supabase.from('spareparts').delete().eq('id', id);
+          if (error) throw error;
+          qc.invalidateQueries({ queryKey: ['catalog'] });
+          notify('Dihapus', 'Produk dihapus dari etalase.');
+          goBack();
+        } catch {
+          // FK: part referenced by an existing order → can't hard-delete.
+          notify('Tidak bisa dihapus', 'Produk ini sudah pernah dipesan pelanggan, jadi tidak bisa dihapus.');
+        } finally {
+          setBusy(false);
+        }
+      },
+      { confirmLabel: 'Hapus', destructive: true },
+    );
   };
 
   return (
@@ -102,10 +165,11 @@ export default function SparepartNew() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.intro}>
-          <Ionicons name="pricetag" size={20} color={colors.accent} />
+          <Ionicons name="pricetag" size={20} color={colors.primary} />
           <Text style={styles.introText}>
-            Tambah sparepart ke etalase. Pembeli bisa pesan kirim atau "pasang di bengkel" (pemasangan
-            jadi pesanan masuk).
+            {editing
+              ? 'Perbarui detail produk. Perubahan langsung tampil di marketplace uMotor.'
+              : 'Tambah sparepart ke etalase. Pembeli bisa pesan kirim atau "pasang di bengkel" (pemasangan jadi pesanan masuk).'}
           </Text>
         </View>
 
@@ -137,7 +201,7 @@ export default function SparepartNew() {
                   style={[styles.cat, active && styles.catActive]}
                   onPress={() => setCategory(c.key)}
                 >
-                  <Ionicons name={c.icon} size={16} color={active ? '#fff' : colors.accent} />
+                  <Ionicons name={c.icon} size={16} color={active ? '#fff' : colors.primary} />
                   <Text style={[styles.catText, active && styles.catTextActive]}>{c.label}</Text>
                 </Pressable>
               );
@@ -200,10 +264,17 @@ export default function SparepartNew() {
             <ActivityIndicator color="#fff" />
           ) : (
             <Text style={styles.submitText}>
-              Terbitkan{price ? ` · ${formatRp(Number(price) || 0)}` : ''}
+              {editing ? 'Simpan perubahan' : `Terbitkan${price ? ` · ${formatRp(Number(price) || 0)}` : ''}`}
             </Text>
           )}
         </Pressable>
+
+        {editing && (
+          <Pressable style={styles.deleteBtn} onPress={remove} disabled={busy}>
+            <Ionicons name="trash-outline" size={18} color={colors.danger} />
+            <Text style={styles.deleteText}>Hapus produk</Text>
+          </Pressable>
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -241,7 +312,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#e5e9f0',
   },
-  catActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+  catActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   catText: { color: '#475467', fontWeight: '700', fontSize: 13 },
   catTextActive: { color: '#fff' },
   priceRow: { flexDirection: 'row', gap: 12 },
@@ -263,11 +334,19 @@ const styles = StyleSheet.create({
   modelTextActive: { color: '#fff' },
   submit: {
     marginTop: 4,
-    backgroundColor: colors.accent,
+    backgroundColor: colors.primary,
     borderRadius: 14,
     paddingVertical: 16,
     alignItems: 'center',
   },
   submitBusy: { opacity: 0.7 },
   submitText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  deleteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+  },
+  deleteText: { color: colors.danger, fontWeight: '700', fontSize: 14 },
 });

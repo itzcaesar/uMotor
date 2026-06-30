@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   colors,
   formatRp,
@@ -12,7 +13,9 @@ import {
   type BookingStatus,
   type Workshop,
 } from '@umotor/shared';
-import { Card, ErrorState, useIsWide } from '@/components/ui';
+import { ActionTile, Card, ErrorState, astra, figAssets, useIsWide } from '@/components/ui';
+import { GreetingBar } from '@/components/GreetingBar';
+import { FadeInView, PressableScale } from '@/components/motion';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 
@@ -41,6 +44,7 @@ type Range = 'today' | 'all';
 export default function Dashboard() {
   const workshopId = useSession((s) => s.workshopId);
   const wide = useIsWide();
+  const insets = useSafeAreaInsets();
   const [range, setRange] = useState<Range>('today');
 
   const stats = useQuery({
@@ -132,7 +136,9 @@ export default function Dashboard() {
         days,
         newToday: rows.filter((r) => new Date(r.created_at).toDateString() === todayKey).length,
         activeCount: activeRes.count ?? 0,
+        pendingWeek: byStatus.get('pending') ?? 0,
         completedToday: completedToday.length,
+        grossToday,
         revenueToday: net(grossToday),
         revenueWeek: net(grossWeek),
         revenueAll: net(grossAll),
@@ -159,104 +165,68 @@ export default function Dashboard() {
 
   const maxDay = Math.max(1, ...(d?.days ?? []).map((x) => x.count));
   const maxService = Math.max(1, ...(d?.topServices ?? []).map(([, n]) => n));
+  const moneyToday = d ? (range === 'today' ? d.revenueToday : d.revenueAll) : 0;
 
   return (
     <ScrollView
       style={styles.scroll}
-      contentContainerStyle={[styles.content, wide && styles.contentWide]}
+      contentContainerStyle={[
+        styles.content,
+        { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 96 },
+        wide && styles.contentWide,
+      ]}
       refreshControl={
         <RefreshControl refreshing={stats.isRefetching} onRefresh={() => stats.refetch()} />
       }
     >
-      {/* Workshop header */}
-      <Card style={styles.head}>
-        <View style={styles.headInfo}>
-          <Text style={styles.headName}>{d?.workshop.name ?? 'Memuat…'}</Text>
-          <Text style={styles.headMeta}>
-            {d
-              ? `★ ${Number(d.workshop.rating).toFixed(1)} · ${
-                  d.workshop.type === 'ahass' ? 'AHASS' : 'Independen'
-                } · tier ${d.workshop.tier}`
-              : ' '}
-          </Text>
-        </View>
-        <View style={styles.headRight}>
-          <View style={styles.liveTag}>
-            <View style={styles.liveDot} />
-            <Text style={styles.liveText}>LIVE</Text>
+      <GreetingBar />
+
+      {/* Two-tone AstraPay balance card */}
+      <FadeInView>
+        <View style={styles.balance}>
+          <View style={styles.balanceLeft}>
+            <Text style={styles.balLabel}>
+              {range === 'today' ? 'Pendapatan hari ini' : 'Pendapatan semua waktu'} · net
+            </Text>
+            <View style={styles.balValueRow}>
+              <Text style={styles.balRp}>Rp</Text>
+              <Text style={styles.balValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>
+                {d ? moneyToday.toLocaleString('id-ID') : '—'}
+              </Text>
+            </View>
+            <View style={styles.balBtns}>
+              <PressableScale style={styles.balBtn} onPress={() => router.push('/(tabs)/earnings')}>
+                <Ionicons name="cash-outline" size={12} color="#fff" />
+                <Text style={styles.balBtnText}>Tarik</Text>
+              </PressableScale>
+              <PressableScale style={styles.balBtn} onPress={() => router.push('/(tabs)/earnings')}>
+                <Ionicons name="receipt-outline" size={12} color="#fff" />
+                <Text style={styles.balBtnText}>Riwayat</Text>
+              </PressableScale>
+            </View>
+            <View style={styles.balFootRow}>
+              <Ionicons name="trending-up" size={11} color={astra.onHero} />
+              <Text style={styles.balFoot}>
+                {d ? `Bruto ${formatRp(range === 'today' ? d.grossToday : d.revenueAll)} · settlement H+1` : ' '}
+              </Text>
+            </View>
           </View>
-          <Pressable
-            style={styles.gearBtn}
-            onPress={() => router.push('/profile')}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel="Kelola bengkel"
-          >
-            <Ionicons name="settings-outline" size={20} color="#667085" />
-          </Pressable>
+
+          <PressableScale style={styles.balanceRight} onPress={() => router.push('/(tabs)/queue')}>
+            <View style={styles.balRightHead}>
+              <Text style={styles.balRightLabel}>Antrian</Text>
+              <Ionicons name="chevron-forward" size={13} color={astra.onHero} />
+            </View>
+            <Text style={styles.balRightValue}>{d ? d.activeCount : '—'}</Text>
+            <Text style={styles.balRightSub}>{d ? `${d.newToday} baru hari ini` : ' '}</Text>
+          </PressableScale>
         </View>
-      </Card>
+      </FadeInView>
 
-      {/* Quick actions */}
-      <View style={styles.actions}>
-        <QuickAction icon="qr-code" label="Scan QR" tint={colors.primary} onPress={() => router.push('/scan')} />
-        <QuickAction
-          icon="cube"
-          label="Sparepart"
-          tint="#7048e8"
-          onPress={() => router.push('/sparepart-new')}
-        />
-        <QuickAction
-          icon="time"
-          label="Jadwal"
-          tint={colors.warning}
-          onPress={() => router.push('/(tabs)/slots')}
-        />
-        <QuickAction
-          icon="list"
-          label="Antrian"
-          tint={colors.accent}
-          onPress={() => router.push('/(tabs)/queue')}
-        />
-      </View>
-
-      {/* KPI grid — 2 cols on phone, 4 on tablet */}
-      <View style={styles.kpiGrid}>
-        <Kpi
-          wide={wide}
-          icon="mail-unread"
-          label="Booking baru hari ini"
-          value={d ? String(d.newToday) : '—'}
-          tint={colors.primary}
-        />
-        <Kpi
-          wide={wide}
-          icon="list"
-          label="Antrian aktif"
-          value={d ? String(d.activeCount) : '—'}
-          tint="#7048e8"
-        />
-        <Kpi
-          wide={wide}
-          icon="checkmark-done"
-          label={range === 'today' ? 'Selesai hari ini' : 'Total servis selesai'}
-          value={d ? String(range === 'today' ? d.completedToday : d.completedAll) : '—'}
-          tint={colors.accent}
-        />
-        <Kpi
-          wide={wide}
-          icon="cash"
-          label={range === 'today' ? 'Pendapatan hari ini (net)' : 'Pendapatan semua waktu (net)'}
-          value={d ? formatRp(range === 'today' ? d.revenueToday : d.revenueAll) : '—'}
-          tint="#067647"
-          small
-        />
-      </View>
-
-      {/* Revenue range filter — applies to the two metrics above */}
+      {/* Range toggle drives the balance headline */}
       <View style={styles.toggle}>
         {(['today', 'all'] as Range[]).map((r) => (
-          <Pressable
+          <PressableScale
             key={r}
             style={[styles.toggleBtn, range === r && styles.toggleBtnActive]}
             onPress={() => setRange(r)}
@@ -264,16 +234,58 @@ export default function Dashboard() {
             <Text style={[styles.toggleText, range === r && styles.toggleTextActive]}>
               {r === 'today' ? 'Hari ini' : 'Semua waktu'}
             </Text>
-          </Pressable>
+          </PressableScale>
         ))}
       </View>
 
-      {/* Chart + status breakdown — side by side on tablet */}
-      <View style={[styles.split, wide && styles.splitWide]}>
+      {/* Action grid — light-blue tiles, blue Figma icons (3 × 2) */}
+      <FadeInView index={1} style={styles.actionGrid}>
+        <View style={styles.actionCell}>
+          <ActionTile icon="qr-code" label="Scan QR" onPress={() => router.push('/scan')} />
+        </View>
+        <View style={styles.actionCell}>
+          <ActionTile img={figAssets.icFlatTire} label="Sparepart" onPress={() => router.push('/sparepart-new')} />
+        </View>
+        <View style={styles.actionCell}>
+          <ActionTile img={figAssets.icCalendar} label="Jadwal" onPress={() => router.push('/(tabs)/slots')} />
+        </View>
+        <View style={styles.actionCell}>
+          <ActionTile icon="list" label="Antrian" onPress={() => router.push('/(tabs)/queue')} />
+        </View>
+        <View style={styles.actionCell}>
+          <ActionTile icon="mail" label="Inbox" onPress={() => router.push('/(tabs)')} />
+        </View>
+        <View style={styles.actionCell}>
+          <ActionTile icon="cash" label="Pendapatan" onPress={() => router.push('/(tabs)/earnings')} />
+        </View>
+      </FadeInView>
+
+      {/* Reminder / call-to-action card (Figma "Moto Reminders") */}
+      <Text style={styles.sectionTitle}>Pengingat</Text>
+      <FadeInView index={2}>
+        <View style={styles.reminder}>
+          <Image source={figAssets.reminderIllus} style={styles.reminderIllus} resizeMode="contain" />
+          <View style={styles.reminderBody}>
+            <Text style={styles.reminderHi}>Halo, Mitra!</Text>
+            <Text style={styles.reminderTitle}>
+              {d && d.pendingWeek > 0
+                ? `${d.pendingWeek} booking menunggu konfirmasi`
+                : 'Semua booking sudah tertangani 🎉'}
+            </Text>
+            <PressableScale style={styles.reminderBtn} onPress={() => router.push('/(tabs)')}>
+              <Text style={styles.reminderBtnText}>Lihat Inbox sekarang!</Text>
+            </PressableScale>
+          </View>
+        </View>
+      </FadeInView>
+
+      {/* Statistics */}
+      <Text style={styles.sectionTitle}>Statistik</Text>
+      <FadeInView index={3} style={[styles.split, wide && styles.splitWide]}>
         <Card style={[styles.chartCard, wide && styles.splitItem]}>
-          <Text style={styles.sectionTitle}>Booking 7 hari terakhir</Text>
-          <Text style={styles.sectionSub}>
-            {d ? `${d.weekTotal} booking · pendapatan net ${formatRp(d.revenueWeek)}` : ' '}
+          <Text style={styles.cardTitle}>Booking 7 hari terakhir</Text>
+          <Text style={styles.cardSub}>
+            {d ? `${d.weekTotal} booking · net ${formatRp(d.revenueWeek)}` : ' '}
           </Text>
           <View style={styles.chart}>
             {(d?.days ?? []).map((day, i) => (
@@ -284,7 +296,7 @@ export default function Dashboard() {
                     styles.bar,
                     {
                       height: Math.max(4, (day.count / maxDay) * 110),
-                      backgroundColor: day.isToday ? colors.accent : '#bcd3f0',
+                      backgroundColor: day.isToday ? astra.primary : '#cfe0f7',
                     },
                   ]}
                 />
@@ -297,7 +309,7 @@ export default function Dashboard() {
         </Card>
 
         <Card style={[styles.breakCard, wide && styles.splitItem]}>
-          <Text style={styles.sectionTitle}>Status booking (7 hari)</Text>
+          <Text style={styles.cardTitle}>Status booking (7 hari)</Text>
           {(['pending', 'confirmed', 'checked_in', 'in_progress', 'completed', 'cancelled'] as BookingStatus[]).map(
             (s) => {
               const n = d?.byStatus.get(s) ?? 0;
@@ -311,111 +323,51 @@ export default function Dashboard() {
             },
           )}
         </Card>
-      </View>
+      </FadeInView>
 
-      {/* Performance */}
-      <Card>
-        <Text style={styles.sectionTitle}>Performa minggu ini</Text>
-        <View style={styles.perfRow}>
-          <Perf label="Penyelesaian" value={d ? `${d.completionRate}%` : '—'} tint={colors.accent} />
-          <Perf
-            label="Rata-rata transaksi"
-            value={d ? formatRp(d.avgTicket) : '—'}
-            tint={colors.primary}
-            small
-          />
-          <Perf label="Pembatalan" value={d ? `${d.cancelRate}%` : '—'} tint={colors.danger} />
-        </View>
-        <Text style={styles.perfHint}>
-          {d ? `${d.completedWeek} servis selesai dari ${d.weekTotal} booking minggu ini` : ' '}
-        </Text>
-      </Card>
-
-      {/* Top services */}
-      <Card>
-        <Text style={styles.sectionTitle}>Layanan terpopuler (7 hari)</Text>
-        {(d?.topServices ?? []).map(([name, n]) => (
-          <View key={name} style={styles.svcRow}>
-            <Text style={styles.svcName} numberOfLines={1}>
-              {name}
-            </Text>
-            <View style={styles.svcTrack}>
-              <View style={[styles.svcFill, { width: `${(n / maxService) * 100}%` }]} />
-            </View>
-            <Text style={styles.svcCount}>{n}</Text>
+      <FadeInView index={4}>
+        <Card>
+          <Text style={styles.cardTitle}>Performa minggu ini</Text>
+          <View style={styles.perfRow}>
+            <Perf label="Penyelesaian" value={d ? `${d.completionRate}%` : '—'} tint={colors.accent} />
+            <Perf
+              label="Rata-rata transaksi"
+              value={d ? formatRp(d.avgTicket) : '—'}
+              tint={astra.primary}
+              small
+            />
+            <Perf label="Pembatalan" value={d ? `${d.cancelRate}%` : '—'} tint={colors.danger} />
           </View>
-        ))}
-        {d && d.topServices.length === 0 && (
-          <Text style={styles.empty}>Belum ada booking minggu ini.</Text>
-        )}
-      </Card>
+          <Text style={styles.perfHint}>
+            {d ? `${d.completedWeek} servis selesai dari ${d.weekTotal} booking minggu ini` : ' '}
+          </Text>
+        </Card>
+      </FadeInView>
 
-      <View style={styles.settle}>
-        <Ionicons name="sync-circle-outline" size={14} color="#98a2b3" />
-        <Text style={styles.settleText}>
-          Net = bruto − {PLATFORM_FEE_PCT}% fee platform · settlement H+1 ke AstraPay merchant
-        </Text>
-      </View>
-    </ScrollView>
-  );
-}
+      <FadeInView index={5}>
+        <Card>
+          <Text style={styles.cardTitle}>Layanan terpopuler (7 hari)</Text>
+          {(d?.topServices ?? []).map(([name, n]) => (
+            <View key={name} style={styles.svcRow}>
+              <Text style={styles.svcName} numberOfLines={1}>
+                {name}
+              </Text>
+              <View style={styles.svcTrack}>
+                <View style={[styles.svcFill, { width: `${(n / maxService) * 100}%` }]} />
+              </View>
+              <Text style={styles.svcCount}>{n}</Text>
+            </View>
+          ))}
+          {d && d.topServices.length === 0 && (
+            <Text style={styles.empty}>Belum ada booking minggu ini.</Text>
+          )}
+        </Card>
+      </FadeInView>
 
-function Kpi({
-  icon,
-  label,
-  value,
-  tint,
-  wide,
-  small = false,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  value: string;
-  tint: string;
-  wide: boolean;
-  small?: boolean;
-}) {
-  return (
-    <Card style={[styles.kpi, { width: wide ? '23.5%' : '48.3%' }]}>
-      <View style={[styles.kpiIcon, { backgroundColor: tint + '1a' }]}>
-        <Ionicons name={icon} size={16} color={tint} />
-      </View>
-      <Text
-        style={[styles.kpiValue, small && styles.kpiValueSmall]}
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.6}
-      >
-        {value}
+      <Text style={styles.settleText}>
+        Net = bruto − {PLATFORM_FEE_PCT}% fee platform · settlement H+1 ke AstraPay merchant
       </Text>
-      <Text style={styles.kpiLabel}>{label}</Text>
-    </Card>
-  );
-}
-
-function QuickAction({
-  icon,
-  label,
-  tint,
-  onPress,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  tint: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      style={styles.action}
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-    >
-      <View style={[styles.actionIcon, { backgroundColor: tint + '1a' }]}>
-        <Ionicons name={icon} size={22} color={tint} />
-      </View>
-      <Text style={styles.actionLabel}>{label}</Text>
-    </Pressable>
+    </ScrollView>
   );
 }
 
@@ -446,87 +398,94 @@ function Perf({
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: '#f3f6fb' },
-  content: { padding: 16, gap: 12, paddingBottom: 32 },
+  scroll: { flex: 1, backgroundColor: astra.bg },
+  content: { paddingHorizontal: 16, paddingTop: 0, paddingBottom: 32, gap: 12 },
   contentWide: { maxWidth: 1000, width: '100%', alignSelf: 'center' },
-  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  headInfo: { gap: 2, flexShrink: 1 },
-  headName: { fontSize: 18, fontWeight: '800', color: '#0b1727' },
-  headMeta: { color: '#667085', fontSize: 12 },
-  headRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  gearBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#f3f6fb',
-    alignItems: 'center',
+
+  // Two-tone balance card
+  balance: {
+    flexDirection: 'row',
+    borderRadius: 20,
+    overflow: 'hidden',
+    minHeight: 138,
+    zIndex: 1,
+    backgroundColor: astra.heroDark,
+  },
+  balanceLeft: {
+    flex: 1.75,
+    backgroundColor: astra.heroMid,
+    padding: 18,
     justifyContent: 'center',
+    gap: 7,
+    borderTopRightRadius: 30,
+    borderBottomRightRadius: 30,
   },
-  actions: { flexDirection: 'row', gap: 10, justifyContent: 'space-between' },
-  action: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderColor: '#eef1f6',
-  },
-  actionIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  actionLabel: { fontSize: 11, fontWeight: '700', color: '#344054' },
-  perfRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, gap: 8 },
-  perf: { flex: 1, alignItems: 'center', gap: 3 },
-  perfValue: { fontSize: 22, fontWeight: '800' },
-  perfValueSmall: { fontSize: 15 },
-  perfLabel: { fontSize: 11, color: '#667085', textAlign: 'center', lineHeight: 14 },
-  perfHint: { color: '#98a2b3', fontSize: 11, marginTop: 10, textAlign: 'center' },
-  liveTag: {
+  balLabel: { color: '#dbe9ff', fontSize: 11, fontWeight: '600' },
+  balValueRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 4 },
+  balRp: { color: '#fff', fontSize: 12, fontWeight: '700', marginBottom: 4 },
+  balValue: { color: '#fff', fontSize: 36, fontWeight: '800', flex: 1 },
+  balBtns: { flexDirection: 'row', gap: 6, marginTop: 2 },
+  balBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#e2f6ee',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    gap: 4,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
-  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent },
-  liveText: { color: colors.accent, fontWeight: '800', fontSize: 11 },
-  toggle: {
-    flexDirection: 'row',
-    backgroundColor: '#e9eef5',
-    borderRadius: 10,
-    padding: 3,
-    gap: 3,
-  },
+  balBtnText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+  balFootRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  balFoot: { color: astra.onHero, fontSize: 10, fontWeight: '600', flexShrink: 1 },
+  balanceRight: { flex: 1, paddingHorizontal: 16, paddingVertical: 16, paddingLeft: 22, justifyContent: 'center', gap: 2 },
+  balRightHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  balRightLabel: { color: '#dbe9ff', fontSize: 11, fontWeight: '600' },
+  balRightValue: { color: '#fff', fontSize: 36, fontWeight: '800' },
+  balRightSub: { color: astra.onHero, fontSize: 10, fontWeight: '600' },
+
+  toggle: { flexDirection: 'row', backgroundColor: '#e9eef5', borderRadius: 10, padding: 3, gap: 3 },
   toggleBtn: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: 'center' },
   toggleBtnActive: { backgroundColor: '#fff' },
-  toggleText: { fontSize: 13, fontWeight: '700', color: '#667085' },
-  toggleTextActive: { color: '#0b1727' },
-  kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between' },
-  kpi: { gap: 6, padding: 14 },
-  kpiIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 9,
+  toggleText: { fontSize: 13, fontWeight: '700', color: astra.sub },
+  toggleTextActive: { color: astra.primary },
+
+  actionGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 16 },
+  actionCell: { width: '31%', alignItems: 'center' },
+
+  sectionTitle: { fontSize: 16, fontWeight: '800', color: astra.primary, marginTop: 2 },
+
+  // Reminder card
+  reminder: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 12,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: astra.line,
+    padding: 14,
   },
-  kpiValue: { fontSize: 24, fontWeight: '800', color: '#0b1727' },
-  kpiValueSmall: { fontSize: 17 },
-  kpiLabel: { fontSize: 11, color: '#667085', lineHeight: 14 },
+  reminderIllus: { width: 78, height: 96 },
+  reminderBody: { flex: 1, gap: 4 },
+  reminderHi: { color: astra.sub, fontSize: 13, fontWeight: '600' },
+  reminderTitle: { color: astra.primary, fontSize: 16, fontWeight: '800', lineHeight: 20 },
+  reminderBtn: {
+    alignSelf: 'flex-start',
+    marginTop: 6,
+    backgroundColor: astra.primary,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  reminderBtnText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+
   split: { gap: 12 },
   splitWide: { flexDirection: 'row', alignItems: 'stretch' },
   splitItem: { flex: 1 },
   chartCard: { gap: 2 },
-  sectionTitle: { fontSize: 15, fontWeight: '800', color: '#0b1727' },
-  sectionSub: { color: '#667085', fontSize: 12 },
+  breakCard: { gap: 2 },
+  cardTitle: { fontSize: 15, fontWeight: '800', color: astra.ink },
+  cardSub: { color: astra.sub, fontSize: 12 },
   chart: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -535,27 +494,25 @@ const styles = StyleSheet.create({
     height: 150,
   },
   chartCol: { flex: 1, alignItems: 'center', gap: 4 },
-  chartCount: { fontSize: 11, fontWeight: '700', color: '#667085' },
+  chartCount: { fontSize: 11, fontWeight: '700', color: astra.sub },
   bar: { width: 22, borderRadius: 6 },
-  chartLabel: { fontSize: 11, color: '#98a2b3', fontWeight: '600' },
-  chartLabelToday: { color: colors.accent, fontWeight: '800' },
-  breakCard: { gap: 2 },
+  chartLabel: { fontSize: 11, color: astra.faint, fontWeight: '600' },
+  chartLabelToday: { color: astra.primary, fontWeight: '800' },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 7 },
   statusDot: { width: 10, height: 10, borderRadius: 5 },
   statusLabel: { flex: 1, color: '#344054', fontSize: 13, fontWeight: '600' },
-  statusCount: { color: '#0b1727', fontWeight: '800', fontSize: 14 },
+  statusCount: { color: astra.ink, fontWeight: '800', fontSize: 14 },
+  perfRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, gap: 8 },
+  perf: { flex: 1, alignItems: 'center', gap: 3 },
+  perfValue: { fontSize: 22, fontWeight: '800' },
+  perfValueSmall: { fontSize: 15 },
+  perfLabel: { fontSize: 11, color: astra.sub, textAlign: 'center', lineHeight: 14 },
+  perfHint: { color: astra.faint, fontSize: 11, marginTop: 10, textAlign: 'center' },
   svcRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
   svcName: { width: 110, color: '#344054', fontSize: 13, fontWeight: '600' },
-  svcTrack: {
-    flex: 1,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#eef1f6',
-    overflow: 'hidden',
-  },
-  svcFill: { height: 8, borderRadius: 4, backgroundColor: colors.primary },
-  svcCount: { width: 24, textAlign: 'right', color: '#0b1727', fontWeight: '800', fontSize: 13 },
-  empty: { color: '#98a2b3', marginTop: 8 },
-  settle: { flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center' },
-  settleText: { color: '#98a2b3', fontSize: 11, flexShrink: 1 },
+  svcTrack: { flex: 1, height: 8, borderRadius: 4, backgroundColor: '#eef1f6', overflow: 'hidden' },
+  svcFill: { height: 8, borderRadius: 4, backgroundColor: astra.primary },
+  svcCount: { width: 24, textAlign: 'right', color: astra.ink, fontWeight: '800', fontSize: 13 },
+  empty: { color: astra.faint, marginTop: 8 },
+  settleText: { color: astra.faint, fontSize: 11, textAlign: 'center', paddingHorizontal: 4 },
 });
