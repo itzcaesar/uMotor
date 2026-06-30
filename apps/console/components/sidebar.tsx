@@ -26,7 +26,7 @@ const NAV = [
 export function Sidebar() {
   const pathname = usePathname();
   return (
-    <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col border-r border-border bg-card/80 backdrop-blur">
+    <aside className="animate-fade-in sticky top-0 flex h-screen w-64 shrink-0 flex-col border-r border-border bg-card/80 backdrop-blur">
       <div className="flex items-center gap-3 px-6 py-6">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-[#1769d6] text-lg font-black text-white shadow-md">
           u
@@ -39,7 +39,7 @@ export function Sidebar() {
         </div>
       </div>
 
-      <nav className="flex flex-col gap-1 px-3">
+      <nav className="stagger-children flex flex-col gap-1 px-3">
         <p className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wider text-muted-soft">
           Menu
         </p>
@@ -49,10 +49,10 @@ export function Sidebar() {
             <Link
               key={href}
               href={href}
-              className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-base font-medium transition-colors ${
+              className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-base font-medium transition-all duration-200 ${
                 active
                   ? "bg-primary-soft text-primary"
-                  : "text-muted hover:bg-primary-soft/60 hover:text-primary"
+                  : "text-muted hover:bg-primary-soft/60 hover:text-primary hover:translate-x-0.5"
               }`}
             >
               {active && (

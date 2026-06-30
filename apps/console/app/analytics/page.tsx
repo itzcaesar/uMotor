@@ -163,7 +163,7 @@ export default function AnalyticsPage() {
         <Loading label="Memuat analitik…" />
       ) : (
       <>
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+      <div className="stagger-children grid grid-cols-2 gap-4 xl:grid-cols-4">
         <KpiCard label="GMV total" value={formatRp(gmv)} icon={<Wallet size={18} />} accent="warning" />
         <KpiCard
           label="Total booking"

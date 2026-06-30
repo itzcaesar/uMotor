@@ -287,7 +287,7 @@ export default function OverviewPage() {
         </Card>
       )}
 
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+      <div className="stagger-children grid grid-cols-2 gap-4 xl:grid-cols-4">
         <KpiCard
           label="Active Users"
           value={kpi ? nf.format(kpi.active_users) : "—"}

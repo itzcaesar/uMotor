@@ -74,7 +74,7 @@ export default function RidesPage() {
         subtitle="Pemantauan perjalanan & integritas data — jarak diverifikasi server, anti-cheat aktif."
       />
 
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+      <div className="stagger-children grid grid-cols-2 gap-4 xl:grid-cols-4">
         <KpiCard label="Ride selesai" value={nf.format(stats.count)} icon={<Bike size={18} />} accent="primary" />
         <KpiCard label="Total jarak" value={`${nf.format(stats.totalKm)} km`} icon={<Route size={18} />} accent="accent" />
         <KpiCard label="Eco rata-rata" value={`${stats.avgEco}/100`} icon={<Leaf size={18} />} accent="accent" />
