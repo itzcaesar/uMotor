@@ -26,3 +26,4 @@ supabase/.branches/
 # ide-related
 .vscode
 .docs
+.github

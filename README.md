@@ -30,6 +30,7 @@ All three front-ends talk to a single hosted Supabase project over the internet.
 - [Supabase CLI](https://supabase.com/docs/guides/cli)
 - A hosted Supabase project (phones and the projector must be able to reach it)
 - [Expo Go](https://expo.dev/go) on the phones used for the mobile apps
+- *(optional, for installable device builds)* [EAS CLI](https://docs.expo.dev/build/setup/) (`npm i -g eas-cli`) and a free [Expo account](https://expo.dev/signup)
 
 ## Setup
 
@@ -75,6 +76,86 @@ pnpm console:build                          # next build
 cd apps/consumer && npx expo export --platform web
 cd apps/partner  && npx expo export --platform web
 ```
+
+## Build for your phone (EAS)
+
+Expo Go (above) is the fastest way to try the apps, but the native modules — camera QR check-in (partner) and location/motion sensors for ride tracking (consumer) — are best exercised in a **standalone build**. Both mobile apps ship an [EAS Build](https://docs.expo.dev/build/introduction/) config (`apps/consumer/eas.json`, `apps/partner/eas.json`) so you can install a real, self-contained app on your own device.
+
+**One-time setup:**
+
+```bash
+npm install -g eas-cli      # or prefix every command with: pnpm dlx eas-cli@latest …
+eas login                   # free Expo account
+
+# Link each app to an EAS project (writes extra.eas.projectId into app.json):
+cd apps/consumer && eas init
+cd ../partner    && eas init
+```
+
+**Build & install — Android (easiest, no paid account):**
+
+```bash
+pnpm consumer:build:android     # uploads to EAS, prints a QR + install URL
+pnpm partner:build:android
+```
+
+EAS builds in the cloud and prints a link with a QR code. On the phone, open it, download the `.apk`, and install it (allow "install unknown apps" once). The `preview` profile produces a sideloadable APK — no Play Store needed.
+
+**iOS** needs an Apple Developer account to sign for a physical device. Register the phone once, then build:
+
+```bash
+eas device:create               # open the link on the iPhone to register it
+pnpm consumer:build:ios
+pnpm partner:build:ios
+```
+
+**Build profiles** (defined in each `eas.json`):
+
+| Profile | Command | Use |
+|---|---|---|
+| `preview` | `pnpm <app>:build:android` / `:ios` | Standalone test build for your phone (APK on Android) |
+| `development` | `cd apps/<app> && pnpm eas:build:dev` | Dev client — install once, then `pnpm <app>:start` for live reload |
+| `production` | `cd apps/<app> && pnpm eas:build:prod` | Store-ready build (Android AAB), auto-incrementing version |
+
+> 🔒 The publishable Supabase URL + anon key are baked into each `eas.json` under `build.<profile>.env` so the cloud build can reach the backend — these are the same client-safe values that already ship inside the JS bundle. **Never** put the secret key (`sb_secret_…`) there. Prefer no keys in git? Delete the `env` blocks and run `eas env:push` to store them on EAS instead.
+
+EAS detects the pnpm workspace automatically — run the `pnpm <app>:build:*` scripts from the repo root, or `cd apps/<app>` and use the `eas:build*` scripts directly.
+
+## Build locally (skip the EAS queue)
+
+EAS builds in the cloud, which means waiting in a queue. If you have the native toolchains installed you can compile on your own machine instead — much faster on repeat builds.
+
+| Target | Local build on… | Notes |
+|---|---|---|
+| **Android** | macOS, Linux, **Windows** | Needs a JDK (17) + the Android SDK (install [Android Studio](https://developer.android.com/studio)). |
+| **iOS** | **macOS only** | Needs Xcode. Not possible on Windows/Linux — use EAS for iOS. |
+
+> ⚠️ `eas build --local` is **not supported on Windows** (macOS/Linux only). On Windows, use the `expo run:android` path below — it compiles with your local Android SDK directly.
+
+**One-time setup (Android):** install Android Studio, then make sure `JAVA_HOME` and `ANDROID_HOME` point at your JDK and SDK (the Android Studio installer sets these up). Verify with `adb --version` and `java -version`.
+
+**Build & install on a plugged-in phone** (USB debugging on, or an emulator running):
+
+```bash
+pnpm consumer:local:android     # = expo run:android --variant release
+pnpm partner:local:android
+```
+
+This generates the native `android/` project (via `expo prebuild`), compiles a release APK with Gradle, and installs it on the connected device. The first run downloads Gradle + dependencies (slow, several minutes); later runs are incrementally cached and much faster. Unlike EAS, local builds read `EXPO_PUBLIC_*` straight from each app's `.env` — no extra config.
+
+**Just want the APK file** (to AirDrop/transfer to a phone — no cable needed):
+
+```bash
+cd apps/consumer            # or apps/partner
+pnpm prebuild               # generates android/  (first time only)
+cd android && ./gradlew assembleRelease
+# → app/build/outputs/apk/release/app-release.apk
+```
+
+Variants: drop `--variant release` (i.e. `pnpm <app>:local:android:dev`) for a debug build with fast reload via `pnpm <app>:start`. The release APK is signed with the auto-generated debug keystore — perfect for sideloading onto your own phone, but you'll need a real upload key to publish to the Play Store (see [Expo: release build locally](https://docs.expo.dev/guides/local-app-production/)).
+
+> The generated `android/` (and `ios/`) folders are gitignored — they're regenerated on demand from `app.json` (Continuous Native Generation), so you never commit them. Delete them anytime; the next build recreates them.
+
 
 Typecheck (no test suite):
 
