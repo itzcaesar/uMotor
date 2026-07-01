@@ -109,28 +109,16 @@ export default function CartScreen() {
       // AstraPay payment — live SNAP debit when enabled, shared mock otherwise.
       const res = await payAstraPaySmart(grandTotal, 'Pembelian sparepart uMotor', { userId });
 
-      // Record the payment so it shows up as GMV in the Console.
-      const { error: payErr } = await supabase.from('payments').insert({
-        user_id: userId,
-        type: 'sparepart',
-        amount: grandTotal,
-        astrapay_ref: res.ref ?? res.txId,
-        astrapay_partner_ref: res.partnerRef ?? null,
+      // Record the payment (GMV in the Console) + decrement the wallet in ONE
+      // atomic transaction — no partial-write window if either half fails.
+      const { error: spendErr } = await supabase.rpc('spend_wallet', {
+        p_user_id: userId,
+        p_type: 'sparepart',
+        p_amount: grandTotal,
+        p_astrapay_ref: res.ref ?? res.txId,
+        p_astrapay_partner_ref: res.partnerRef ?? null,
       });
-      if (payErr) throw payErr;
-
-      // Decrement the demo wallet so the Profile balance reacts.
-      const { data: u } = await supabase
-        .from('users')
-        .select('astrapay_balance')
-        .eq('id', userId)
-        .single();
-      if (u) {
-        await supabase
-          .from('users')
-          .update({ astrapay_balance: Math.max(0, u.astrapay_balance - grandTotal) })
-          .eq('id', userId);
-      }
+      if (spendErr) throw spendErr;
 
       qc.invalidateQueries();
       clear();

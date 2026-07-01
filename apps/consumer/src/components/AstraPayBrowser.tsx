@@ -129,13 +129,38 @@ export function AstraPayBrowserHost() {
                   setLoading(false);
                   setFirstLoaded(true);
                 }}
-                onError={() => setFailed(true)}
-                onHttpError={() => setFailed(true)}
+                onError={(e) => {
+                  // A redirect to our custom-scheme finish URL (umotor:// or
+                  // exp://) can't load as a page and surfaces here on Android —
+                  // treat it as the finish, not a load failure ("gagal dimuat").
+                  const url = e.nativeEvent?.url ?? '';
+                  if (url && isFinish(url)) {
+                    close('success', url);
+                    return;
+                  }
+                  setFailed(true);
+                }}
+                onHttpError={(e) => {
+                  const url = e.nativeEvent?.url ?? '';
+                  if (url && isFinish(url)) {
+                    close('success', url);
+                    return;
+                  }
+                  // Only fail on the main document — ignore sub-resource HTTP
+                  // errors (analytics/images) that would otherwise dead-end the
+                  // whole flow on "gagal dimuat".
+                  if (!url || url === request.url) setFailed(true);
+                }}
                 onShouldStartLoadWithRequest={(req) => {
                   if (isFinish(req.url)) {
                     close('success', req.url);
                     return false;
                   }
+                  // Only navigate http(s) inside the webview. AstraPay's error
+                  // page ("Terjadi Kesalahan") auto-returns via a custom-scheme
+                  // redirect; blocking non-http schemes here stops the WebView
+                  // from firing onError and dead-ending on "gagal dimuat".
+                  if (!/^(https?|about):/i.test(req.url)) return false;
                   return true;
                 }}
                 // Some redirects (302 to a custom scheme) only surface here.

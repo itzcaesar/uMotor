@@ -32,6 +32,16 @@ import { supabase } from './supabase';
 // no in-app mock/demo payment path otherwise.
 export const ASTRAPAY_LIVE = (process.env.EXPO_PUBLIC_ASTRAPAY_LIVE ?? '1') !== '0';
 
+// AstraPay's hosted binding/payment pages REJECT a custom app-scheme redirect
+// (umotor://…) and render their generic "Terjadi Kesalahan" system-error page
+// instead. The SNAP sandbox only accepts an https finish URL — verified in
+// scripts/astrapay-smoke.mjs, which binds successfully with https://umotor.app/…
+// The in-app WebView intercepts a redirect to these URLs *before* it navigates
+// (isFinish matches the path + any authCode), so the page is never fetched and
+// the (possibly non-resolving) domain never matters — it's purely a return token.
+const ASTRAPAY_FINISH_BIND = 'https://umotor.app/astrapay/bound';
+const ASTRAPAY_FINISH_PAY = 'https://umotor.app/astrapay/paid';
+
 const STATUS_COPY: Record<AstraPayTxnStatus, string> = {
   SUCCESS: 'berhasil',
   FAILED: 'gagal',
@@ -90,7 +100,7 @@ export async function payAstraPayLive(
   const url = pay.json.webRedirectUrl ?? pay.json.redirectUrl;
   let dismissed = false;
   if (url) {
-    const finishUrl = Linking.createURL('astrapay/paid');
+    const finishUrl = ASTRAPAY_FINISH_PAY;
     // In-app WebView — the user never leaves the app. AstraPay's push-payment
     // success page may not redirect to our finish URL, so the user taps Close
     // after "Transaksi Berhasil"; the status poll below is the real signal.
@@ -109,17 +119,23 @@ export async function payAstraPayLive(
     amount,
     dismissed ? 15 : 45,
   );
-  if (status !== 'SUCCESS') {
-    throw new Error(
-      dismissed && status === 'PENDING'
-        ? 'Pembayaran dibatalkan.'
-        : `Pembayaran AstraPay ${STATUS_COPY[status]}.`,
-    );
+  // FAILED/REJECTED = a real decline → surface the error. A still-PENDING debit
+  // is treated optimistically: if the user actually completed the AstraPay flow
+  // (not dismissed), the debit was authorized and will settle — the
+  // astrapay-webhook stamps astrapay_settled_at when it does — so we don't
+  // hard-fail here (which would, e.g., roll a booking back on slow sandbox
+  // settlement). Only a PENDING after the user dismissed the webview is a cancel.
+  if (status === 'FAILED' || status === 'REJECTED') {
+    throw new Error(`Pembayaran AstraPay ${STATUS_COPY[status]}.`);
+  }
+  if (status === 'PENDING' && dismissed) {
+    throw new Error('Pembayaran dibatalkan.');
   }
 
   onStage?.('success');
   return {
     success: true,
+    pending: status === 'PENDING',
     txId: pay.json.referenceNo ?? pay.partnerReferenceNo ?? 'AP',
     amount,
     description,
@@ -191,7 +207,7 @@ export async function bindAstraPay(
   // AstraPay expects digits only — Profile passes "0853-4886-1424" (dashes),
   // login passes digits; normalize both here.
   const phone = opts.phone?.replace(/\D/g, '');
-  const finishBindingUrl = Linking.createURL('astrapay/bound');
+  const finishBindingUrl = ASTRAPAY_FINISH_BIND;
   const res = await astrapayBind(supabase, {
     finishBindingUrl,
     externalUid: userId,

@@ -88,24 +88,22 @@ export default function BillDetail() {
 
   const bill = q.data?.bill ?? null;
   const bike = q.data?.bike ?? null;
-  const balance = q.data?.balance ?? 0;
 
   const pay = async () => {
     if (!userId || !bill || busy) return;
     try {
       const res = await payAstra(bill.amount, bill.name, { userId });
-      const [upd, payRes] = await Promise.all([
-        supabase.from('bills').update({ paid: true }).eq('id', bill.id),
-        supabase.from('payments').insert({
-          user_id: userId,
-          type: 'bill',
-          amount: bill.amount,
-          astrapay_ref: res.ref ?? res.txId,
-          astrapay_partner_ref: res.partnerRef ?? null,
-        }),
-      ]);
-      if (upd.error || payRes.error) throw upd.error ?? payRes.error;
-      await supabase.from('users').update({ astrapay_balance: Math.max(0, balance - bill.amount) }).eq('id', userId);
+      // Mark the bill paid + record the payment + decrement the wallet in one
+      // atomic transaction (spend_wallet marks the bill via p_bill_id).
+      const { error: spendErr } = await supabase.rpc('spend_wallet', {
+        p_user_id: userId,
+        p_type: 'bill',
+        p_amount: bill.amount,
+        p_astrapay_ref: res.ref ?? res.txId,
+        p_astrapay_partner_ref: res.partnerRef ?? null,
+        p_bill_id: bill.id,
+      });
+      if (spendErr) throw spendErr;
       qc.invalidateQueries({ queryKey: ['finance', userId] });
       qc.invalidateQueries({ queryKey: ['bill', id] });
       clear();

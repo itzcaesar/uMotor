@@ -32,7 +32,7 @@ export default function WorkshopList() {
   // On web `useWindowDimensions` is the full browser window, so a width-relative
   // hero scales wildly (huge on desktop, a bare peak on a narrow viewport). Clamp
   // it to a phone-like band and center it so the mountain always reads as the same
-  // flat ridge backdrop — its peak stays clipped by the 104px art window.
+  // flat ridge backdrop — it sits within the 150px art window above the sheet.
   const heroW = Math.min(Math.max(r.width, 380), 460);
 
   useEffect(() => {
@@ -74,7 +74,7 @@ export default function WorkshopList() {
       {/* decorative scene: light mountain + flanking trees + biker */}
       <View style={styles.art} pointerEvents="none">
         <View style={[styles.artScene, { width: heroW }]}>
-          <View style={{ position: 'absolute', left: -20, right: -20, bottom: 0 }}>
+          <View style={{ position: 'absolute', left: -20, right: -20, bottom: -64 }}>
             <Illustration name="mountainBengkel" width={heroW + 40} />
           </View>
           <View style={{ position: 'absolute', left: -56, bottom: -8 }}>
@@ -89,23 +89,25 @@ export default function WorkshopList() {
         </View>
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }} showsVerticalScrollIndicator={false}>
-        <View style={[styles.panel, r.isTablet && { maxWidth: 760, width: '100%', alignSelf: 'center' }]}>
-          {/* filter chips */}
-          <View style={styles.chipsRow}>
-            <View style={styles.chips}>
-              {FILTERS.map((f) => {
-                const active = filter === f.key;
-                return (
-                  <Pressable key={f.key} onPress={() => setFilter(f.key)} style={[styles.chip, active ? styles.chipActive : styles.chipIdle]}>
-                    <Text style={[styles.chipText, active ? styles.chipTextActive : styles.chipTextIdle]}>{f.label}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-            <Ionicons name="options-outline" size={18} color={umotor.heroDark} />
+      {/* Fixed blue sheet — only the card list inside scrolls, so the filter
+          chips stay pinned at the top of the sheet while you scroll. */}
+      <View style={[styles.panel, r.isTablet && { maxWidth: 760, width: '100%', alignSelf: 'center' }]}>
+        {/* filter chips — pinned above the scrolling list */}
+        <View style={styles.chipsRow}>
+          <View style={styles.chips}>
+            {FILTERS.map((f) => {
+              const active = filter === f.key;
+              return (
+                <Pressable key={f.key} onPress={() => setFilter(f.key)} style={[styles.chip, active ? styles.chipActive : styles.chipIdle]}>
+                  <Text style={[styles.chipText, active ? styles.chipTextActive : styles.chipTextIdle]}>{f.label}</Text>
+                </Pressable>
+              );
+            })}
           </View>
+          <Ionicons name="options-outline" size={18} color={umotor.heroDark} />
+        </View>
 
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: insets.bottom + 24, gap: 12 }} showsVerticalScrollIndicator={false}>
           {list.map((item) => (
             <Pressable
               key={item.id}
@@ -153,8 +155,8 @@ export default function WorkshopList() {
           {list.length === 0 && (
             <Text style={styles.empty}>{workshops.isLoading ? 'Memuat bengkel…' : 'Tidak ada bengkel untuk filter ini.'}</Text>
           )}
-        </View>
-      </ScrollView>
+        </ScrollView>
+      </View>
     </View>
   );
 }
@@ -163,10 +165,10 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: umotor.bg },
   header: { flexDirection: 'row', alignItems: 'center', gap: 13, paddingHorizontal: 17, paddingBottom: 6 },
   headerTitle: { fontSize: 18, fontWeight: '500', color: umotor.heroDark },
-  art: { height: 104, overflow: 'hidden' },
-  artScene: { height: 104, alignSelf: 'center', position: 'relative' },
+  art: { height: 150, overflow: 'hidden' },
+  artScene: { height: 150, alignSelf: 'center', position: 'relative' },
 
-  panel: { backgroundColor: '#d3e6ff', borderTopLeftRadius: 21, borderTopRightRadius: 21, borderWidth: 0.5, borderColor: umotor.heroDark, minHeight: 600, paddingHorizontal: 17, paddingTop: 16, gap: 12 },
+  panel: { flex: 1, backgroundColor: '#d3e6ff', borderTopLeftRadius: 21, borderTopRightRadius: 21, borderWidth: 0.5, borderColor: umotor.heroDark, paddingHorizontal: 17, paddingTop: 16, gap: 12 },
   chipsRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   chips: { flexDirection: 'row', gap: 10, flex: 1, flexWrap: 'wrap' },
   chip: { height: 26, borderRadius: 30, paddingHorizontal: 14, justifyContent: 'center' },

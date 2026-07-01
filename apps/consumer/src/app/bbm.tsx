@@ -59,21 +59,18 @@ export default function Bbm() {
     setBusy(true);
     try {
       const res = await payAstraPaySmart(total, `Top-up BBM ${bike.plate}`, { userId });
-      const [pay, odo, u] = await Promise.all([
-        supabase.from('payments').insert({
-          user_id: userId,
-          type: 'bill',
-          amount: total,
-          astrapay_ref: res.ref ?? res.txId,
-          astrapay_partner_ref: res.partnerRef ?? null,
+      const [pay, odo] = await Promise.all([
+        // Payment record + wallet decrement in one atomic transaction.
+        supabase.rpc('spend_wallet', {
+          p_user_id: userId,
+          p_type: 'bill',
+          p_amount: total,
+          p_astrapay_ref: res.ref ?? res.txId,
+          p_astrapay_partner_ref: res.partnerRef ?? null,
         }),
         supabase.rpc('advance_odometer', { p_motorcycle_id: bike.id, p_km: estKm }),
-        supabase.from('users').select('astrapay_balance').eq('id', userId).single(),
       ]);
       if (pay.error || odo.error) throw pay.error ?? odo.error;
-      if (u.data) {
-        await supabase.from('users').update({ astrapay_balance: Math.max(0, u.data.astrapay_balance - total) }).eq('id', userId);
-      }
       qc.invalidateQueries();
       notify(
         'BBM terisi',

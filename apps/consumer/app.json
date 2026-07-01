@@ -56,7 +56,8 @@
         {
           "motionPermission": "uMotor memakai sensor gerak untuk mengenali jenis perjalanan (berkendara vs jalan kaki)."
         }
-      ]
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true,

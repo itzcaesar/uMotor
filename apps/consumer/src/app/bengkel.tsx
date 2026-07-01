@@ -73,20 +73,20 @@ export default function BengkelMap() {
         <WorkshopMap workshops={list} selectedId={selected} onSelect={setSelected} height={r.isTablet ? 320 : 240} />
       </View>
 
+      {/* filter chips — pinned above the list so they stay visible while scrolling */}
+      <View style={[styles.chipsBar, r.isTablet && { maxWidth: 760, width: '100%', alignSelf: 'center' }]}>
+        {FILTERS.map((f) => {
+          const active = filter === f.key;
+          return (
+            <Pressable key={f.key} onPress={() => setFilter(f.key)} style={[styles.chip, active ? styles.chipActive : styles.chipIdle]}>
+              <Text style={[styles.chipText, active ? styles.chipTextActive : styles.chipTextIdle]}>{f.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }} showsVerticalScrollIndicator={false}>
         <View style={[styles.body, r.isTablet && { maxWidth: 760, width: '100%', alignSelf: 'center' }]}>
-          {/* filter chips */}
-          <View style={styles.chips}>
-            {FILTERS.map((f) => {
-              const active = filter === f.key;
-              return (
-                <Pressable key={f.key} onPress={() => setFilter(f.key)} style={[styles.chip, active ? styles.chipActive : styles.chipIdle]}>
-                  <Text style={[styles.chipText, active ? styles.chipTextActive : styles.chipTextIdle]}>{f.label}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
           {list.map((item) => {
             const isSel = selected === item.id;
             return (
@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
   body: { paddingHorizontal: 17, gap: 12 },
   mapWrap: { paddingHorizontal: 17, paddingTop: 4, paddingBottom: 12 },
 
-  chips: { flexDirection: 'row', gap: 10, flexWrap: 'wrap', marginTop: 4 },
+  chipsBar: { flexDirection: 'row', gap: 10, flexWrap: 'wrap', paddingHorizontal: 17, paddingBottom: 12 },
   chip: { height: 28, borderRadius: 30, paddingHorizontal: 16, justifyContent: 'center' },
   chipActive: { backgroundColor: umotor.heroDark },
   chipIdle: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#d9e2f0' },

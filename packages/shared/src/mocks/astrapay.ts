@@ -12,6 +12,12 @@ export interface AstraPayResult {
   ref?: string;
   /** Our partnerReferenceNo (live only) — for reconciliation against AstraPay. */
   partnerRef?: string;
+  /**
+   * Live only: the user completed the flow but AstraPay hadn't settled the debit
+   * before the status poll timed out. Accepted optimistically — the
+   * astrapay-webhook stamps settlement when it lands. The mock never sets this.
+   */
+  pending?: boolean;
 }
 
 export interface PayOptions {
