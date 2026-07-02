@@ -112,11 +112,43 @@ insert into bills (user_id, motorcycle_id, type, name, amount, due_date) values
   ('11111111-1111-1111-1111-111111111111', '44444444-4444-4444-4444-444444444444',
    'installment', 'Cicilan Vario — FIFGROUP', 1150000, current_date + 12);
 
--- The unread maintenance notification matching the 80% oil state
-insert into notifications (user_id, type, title, body) values
+-- Notifications inbox — mix of unread (top) and read (history) so the tab
+-- is populated for the demo. Dates are relative to now() to stay fresh.
+insert into notifications (user_id, type, title, body, read, created_at) values
+  -- Unread — top of the list
   ('11111111-1111-1111-1111-111111111111', 'maintenance',
    'Waktunya ganti oli',
-   'Oli motor D 4821 BJK sudah 80% interval (2.400/3.000 km), masih 600 km lagi. Ganti sekarang atau tunggu?');
+   'Oli motor D 4821 BJK sudah 80% interval (2.400/3.000 km), masih 600 km lagi. Ganti sekarang atau tunggu?',
+   false, now() - interval '2 hours'),
+  ('11111111-1111-1111-1111-111111111111', 'promo',
+   'Promo servis akhir pekan',
+   'Diskon 15% ganti oli + tune-up di AHASS Bandung Timur, berlaku sampai Minggu ini. Klaim di aplikasi.',
+   false, now() - interval '8 hours'),
+  ('11111111-1111-1111-1111-111111111111', 'reminder',
+   'Cicilan Vario segera jatuh tempo',
+   'Cicilan FIFGROUP untuk D 2871 KCE (Rp 1.150.000) jatuh tempo 12 hari lagi. Bayar sekarang via Finance Hub.',
+   false, now() - interval '1 day'),
+  ('11111111-1111-1111-1111-111111111111', 'bill',
+   'Pajak STNK mendekat',
+   'Pajak STNK D 4821 BJK (Rp 230.000) jatuh tempo dalam 20 hari. Bayar via uMotor dapat +500 MotoPoints.',
+   false, now() - interval '2 days'),
+  -- Read — historical context
+  ('11111111-1111-1111-1111-111111111111', 'ride',
+   'Ride selesai — 18 km',
+   'Jarak 18 km, skor eco 88. +180 MotoPoin. Odometer & jadwal servis ikut terupdate.',
+   true, now() - interval '4 days'),
+  ('11111111-1111-1111-1111-111111111111', 'score',
+   'MotoScore naik ke 92',
+   'Servis rutin tepat waktu menjaga skor kamu tetap tinggi. Terus pertahankan, ya!',
+   true, now() - interval '18 days'),
+  ('11111111-1111-1111-1111-111111111111', 'payment',
+   'Top-up wallet berhasil',
+   'Saldo uMotor bertambah Rp 200.000 via AstraPay. Siap dipakai untuk servis & tagihan.',
+   true, now() - interval '25 days'),
+  ('11111111-1111-1111-1111-111111111111', 'reward',
+   'MotoPoints kamu bisa ditukar',
+   'Kamu punya cukup poin untuk voucher servis Rp 50.000. Cek katalog di tab Finance.',
+   true, now() - interval '32 days');
 
 -- ═══ Demo user service history (so no consumer screen is ever empty) ════
 -- Yanuar's past services across both bikes — fills bike detail "Riwayat servis",
@@ -375,3 +407,216 @@ from (values
 insert into ride_events (ride_id, ts, type, value, lat, lng) values
   ('aaaaaaaa-0000-0000-0000-000000000001',
    (now() - interval '2 days') + interval '11 minutes', 'harsh_brake', 4.2, -6.9040, 107.6858);
+
+-- ═══ Partner "lively demo" seed ══════════════════════════════════════
+-- Named customers + a variety of bookings all anchored to the demo workshop
+-- (AHASS Bandung Timur, 22222…) so the Partner tabs — Inbox, Antrian,
+-- Pesanan (marketplace), Pendapatan, Dashboard — show populated content on
+-- first launch. Timestamps relative to now(); payments inserted explicitly so
+-- earnings totals include these rows.
+
+insert into users (id, name, phone, astrapay_balance) values
+  ('55555555-0000-0000-0000-000000000001', 'Rizky Ramadhan',   '0812-3400-0001', 320000),
+  ('55555555-0000-0000-0000-000000000002', 'Dewi Anggraini',   '0812-3400-0002', 180000),
+  ('55555555-0000-0000-0000-000000000003', 'Bagas Pramudita',  '0812-3400-0003', 450000),
+  ('55555555-0000-0000-0000-000000000004', 'Sari Wulandari',   '0812-3400-0004', 260000),
+  ('55555555-0000-0000-0000-000000000005', 'Farhan Nugroho',   '0812-3400-0005', 500000),
+  ('55555555-0000-0000-0000-000000000006', 'Intan Permata',    '0812-3400-0006', 210000),
+  ('55555555-0000-0000-0000-000000000007', 'Aditya Wibowo',    '0812-3400-0007', 380000),
+  ('55555555-0000-0000-0000-000000000008', 'Nadia Salsabila',  '0812-3400-0008', 150000),
+  ('55555555-0000-0000-0000-000000000009', 'Reza Kurniawan',   '0812-3400-0009', 275000),
+  ('55555555-0000-0000-0000-000000000010', 'Putri Maharani',   '0812-3400-0010', 340000),
+  ('55555555-0000-0000-0000-000000000011', 'Hendra Setiawan',  '0812-3400-0011', 420000),
+  ('55555555-0000-0000-0000-000000000012', 'Kirana Ayu',       '0812-3400-0012', 190000);
+
+insert into motorcycles (id, user_id, plate, brand, model, year, odometer_km) values
+  ('66666666-0000-0000-0000-000000000001', '55555555-0000-0000-0000-000000000001', 'D 1234 RZK', 'Yamaha', 'NMAX 155',  2022,  9800),
+  ('66666666-0000-0000-0000-000000000002', '55555555-0000-0000-0000-000000000002', 'D 2345 DWI', 'Honda',  'Vario 160', 2023,  6200),
+  ('66666666-0000-0000-0000-000000000003', '55555555-0000-0000-0000-000000000003', 'D 3456 BGS', 'Yamaha', 'Aerox 155', 2024,  3100),
+  ('66666666-0000-0000-0000-000000000004', '55555555-0000-0000-0000-000000000004', 'D 4567 SWL', 'Honda',  'BeAT',      2021, 14500),
+  ('66666666-0000-0000-0000-000000000005', '55555555-0000-0000-0000-000000000005', 'D 5678 FRN', 'Honda',  'PCX 160',   2023,  7400),
+  ('66666666-0000-0000-0000-000000000006', '55555555-0000-0000-0000-000000000006', 'D 6789 INT', 'Yamaha', 'NMAX 155',  2022, 11200),
+  ('66666666-0000-0000-0000-000000000007', '55555555-0000-0000-0000-000000000007', 'D 7890 ADT', 'Honda',  'Vario 160', 2024,  2800),
+  ('66666666-0000-0000-0000-000000000008', '55555555-0000-0000-0000-000000000008', 'D 8901 NDA', 'Yamaha', 'Aerox 155', 2023,  5900),
+  ('66666666-0000-0000-0000-000000000009', '55555555-0000-0000-0000-000000000009', 'D 9012 RZK', 'Honda',  'BeAT',      2022, 16700),
+  ('66666666-0000-0000-0000-000000000010', '55555555-0000-0000-0000-000000000010', 'D 0123 PTR', 'Honda',  'PCX 160',   2024,  4300),
+  ('66666666-0000-0000-0000-000000000011', '55555555-0000-0000-0000-000000000011', 'D 1122 HDR', 'Yamaha', 'NMAX 155',  2021, 18900),
+  ('66666666-0000-0000-0000-000000000012', '55555555-0000-0000-0000-000000000012', 'D 3344 KRN', 'Honda',  'Vario 160', 2023,  8600);
+
+-- Give the named customers plausible MotoScores so Console tables aren't
+-- flooded with the 600 default when Yanuar isn't the focus.
+insert into motoscore (user_id, score)
+select id, 620 + floor(random() * 180)::int
+from users where id::text like '55555555-0000-0000-0000-%';
+
+-- ── Inbox: 4 pending bookings on tomorrow's slots at the demo workshop ──
+with pending_slots as (
+  select id, (row_number() over (order by slot_at))::int as rn
+  from slots
+  where workshop_id = '22222222-2222-2222-2222-222222222222'
+    and slot_at::date = current_date + 1
+)
+insert into bookings (user_id, motorcycle_id, workshop_id, slot_id, service_id, status,
+                      total_amount, deposit_amount, created_at, updated_at)
+select p.uid::uuid, p.mid::uuid, '22222222-2222-2222-2222-222222222222'::uuid,
+       s.id,
+       (select id from services where code = p.svc),
+       'pending'::booking_status,
+       p.total, 25000,
+       now() - make_interval(mins => p.mins_ago),
+       now() - make_interval(mins => p.mins_ago)
+from (values
+  ('55555555-0000-0000-0000-000000000001', '66666666-0000-0000-0000-000000000001', 'oil_change',     85000,  12, 1),
+  ('55555555-0000-0000-0000-000000000002', '66666666-0000-0000-0000-000000000002', 'tune_up',       165000,  34, 2),
+  ('55555555-0000-0000-0000-000000000003', '66666666-0000-0000-0000-000000000003', 'oil_change',     95000,  58, 3),
+  ('55555555-0000-0000-0000-000000000004', '66666666-0000-0000-0000-000000000004', 'battery_swap',  305000, 120, 4)
+) as p(uid, mid, svc, total, mins_ago, slot_rn)
+join pending_slots s on s.rn = p.slot_rn;
+
+update slots set booked_count = booked_count + 1
+where id in (
+  select id from (
+    select id, row_number() over (order by slot_at) rn
+    from slots where workshop_id = '22222222-2222-2222-2222-222222222222'
+      and slot_at::date = current_date + 1
+  ) x where rn between 1 and 4
+);
+
+-- One pending home-service booking so the "Home / Layanan" badge shows up.
+insert into bookings (user_id, motorcycle_id, workshop_id, service_id, status,
+                      is_home_service, home_address, home_lat, home_lng,
+                      total_amount, deposit_amount, created_at, updated_at)
+values (
+  '55555555-0000-0000-0000-000000000005'::uuid,
+  '66666666-0000-0000-0000-000000000005'::uuid,
+  '22222222-2222-2222-2222-222222222222'::uuid,
+  (select id from services where code = 'oil_change'),
+  'pending'::booking_status, true, 'Jl. Riau No. 45, Bandung',
+  -6.9070, 107.6110, 110000, 35000,
+  now() - interval '18 minutes', now() - interval '18 minutes'
+);
+
+-- ── Queue (Antrian): 5 more active jobs on today's remaining slots ────
+-- Today's slots rn 1..3 are already occupied by the existing seed. Take rn 4..8.
+with today_slots as (
+  select id, (row_number() over (order by slot_at))::int as rn
+  from slots
+  where workshop_id = '22222222-2222-2222-2222-222222222222'
+    and slot_at::date = current_date
+)
+insert into bookings (user_id, motorcycle_id, workshop_id, slot_id, service_id, status,
+                      total_amount, deposit_amount, created_at, updated_at)
+select p.uid::uuid, p.mid::uuid, '22222222-2222-2222-2222-222222222222'::uuid,
+       t.id,
+       (select id from services where code = p.svc),
+       p.status::booking_status,
+       p.total, 25000,
+       now() - make_interval(mins => p.mins_ago),
+       now() - make_interval(mins => p.status_age)
+from (values
+  ('55555555-0000-0000-0000-000000000006', '66666666-0000-0000-0000-000000000006', 'oil_change',     88000, 'in_progress', 240, 25, 4),
+  ('55555555-0000-0000-0000-000000000007', '66666666-0000-0000-0000-000000000007', 'tune_up',       175000, 'checked_in',  180, 40, 5),
+  ('55555555-0000-0000-0000-000000000008', '66666666-0000-0000-0000-000000000008', 'oil_change',     95000, 'checked_in',  120, 55, 6),
+  ('55555555-0000-0000-0000-000000000009', '66666666-0000-0000-0000-000000000009', 'battery_swap',  315000, 'confirmed',    80, 80, 7),
+  ('55555555-0000-0000-0000-000000000010', '66666666-0000-0000-0000-000000000010', 'oil_change',     98000, 'confirmed',    45, 45, 8)
+) as p(uid, mid, svc, total, status, mins_ago, status_age, slot_rn)
+join today_slots t on t.rn = p.slot_rn;
+
+update slots set booked_count = booked_count + 1
+where id in (
+  select id from (
+    select id, row_number() over (order by slot_at) rn
+    from slots where workshop_id = '22222222-2222-2222-2222-222222222222'
+      and slot_at::date = current_date
+  ) x where rn between 4 and 8
+);
+
+-- ── Marketplace orders (Pesanan pemasangan tab) ───────────────────────
+-- pasang_sparepart bookings with booking_parts. Mix of pending / confirmed /
+-- completed so the tab shows both live work and history.
+insert into bookings (id, user_id, motorcycle_id, workshop_id, service_id, status,
+                      total_amount, deposit_amount, created_at, updated_at) values
+  ('77777777-0000-0000-0000-000000000001',
+   '55555555-0000-0000-0000-000000000011', '66666666-0000-0000-0000-000000000011',
+   '22222222-2222-2222-2222-222222222222',
+   (select id from services where code = 'pasang_sparepart'),
+   'pending', 83000, 25000, now() - interval '35 minutes', now() - interval '35 minutes'),
+  ('77777777-0000-0000-0000-000000000002',
+   '55555555-0000-0000-0000-000000000012', '66666666-0000-0000-0000-000000000012',
+   '22222222-2222-2222-2222-222222222222',
+   (select id from services where code = 'pasang_sparepart'),
+   'pending', 52000, 25000, now() - interval '1 hour 10 minutes', now() - interval '1 hour 10 minutes'),
+  ('77777777-0000-0000-0000-000000000003',
+   '55555555-0000-0000-0000-000000000001', '66666666-0000-0000-0000-000000000001',
+   '22222222-2222-2222-2222-222222222222',
+   (select id from services where code = 'pasang_sparepart'),
+   'confirmed', 235000, 25000, now() - interval '3 hours', now() - interval '2 hours'),
+  ('77777777-0000-0000-0000-000000000004',
+   '55555555-0000-0000-0000-000000000006', '66666666-0000-0000-0000-000000000006',
+   '22222222-2222-2222-2222-222222222222',
+   (select id from services where code = 'pasang_sparepart'),
+   'completed', 83000, 25000, now() - interval '1 day', now() - interval '1 day' + interval '2 hours'),
+  ('77777777-0000-0000-0000-000000000005',
+   '55555555-0000-0000-0000-000000000003', '66666666-0000-0000-0000-000000000003',
+   '22222222-2222-2222-2222-222222222222',
+   (select id from services where code = 'pasang_sparepart'),
+   'completed', 52000, 25000, now() - interval '3 days', now() - interval '3 days' + interval '90 minutes');
+
+insert into booking_parts (booking_id, sparepart_id, qty, unit_price) values
+  ('77777777-0000-0000-0000-000000000001',
+   (select id from spareparts where name = 'Yamalube 10W-30 0.8L'), 1, 65000),
+  ('77777777-0000-0000-0000-000000000001',
+   (select id from spareparts where name = 'Filter oli'),           1, 18000),
+  ('77777777-0000-0000-0000-000000000002',
+   (select id from spareparts where name = 'Filter udara'),         1, 52000),
+  ('77777777-0000-0000-0000-000000000003',
+   (select id from spareparts where name = 'Aki GTZ6V'),            1, 235000),
+  ('77777777-0000-0000-0000-000000000004',
+   (select id from spareparts where name = 'Yamalube 10W-30 0.8L'), 1, 65000),
+  ('77777777-0000-0000-0000-000000000004',
+   (select id from spareparts where name = 'Filter oli'),           1, 18000),
+  ('77777777-0000-0000-0000-000000000005',
+   (select id from spareparts where name = 'Filter udara'),         1, 52000);
+
+-- ── Extra completed jobs across the week (Dashboard bar chart body) ───
+insert into bookings (user_id, motorcycle_id, workshop_id, service_id, status,
+                      total_amount, deposit_amount, created_at, updated_at)
+select p.uid::uuid, p.mid::uuid,
+       '22222222-2222-2222-2222-222222222222'::uuid,
+       (select id from services where code = p.svc),
+       'completed'::booking_status,
+       p.total, 25000,
+       now() - make_interval(days => p.days_ago, hours => p.h_from),
+       now() - make_interval(days => p.days_ago, hours => p.h_from) + interval '90 minutes'
+from (values
+  ('55555555-0000-0000-0000-000000000001', '66666666-0000-0000-0000-000000000001', 'oil_change',     85000, 0, 4),
+  ('55555555-0000-0000-0000-000000000002', '66666666-0000-0000-0000-000000000002', 'tune_up',       165000, 0, 6),
+  ('55555555-0000-0000-0000-000000000005', '66666666-0000-0000-0000-000000000005', 'oil_change',     90000, 1, 3),
+  ('55555555-0000-0000-0000-000000000007', '66666666-0000-0000-0000-000000000007', 'battery_swap',  305000, 1, 7),
+  ('55555555-0000-0000-0000-000000000004', '66666666-0000-0000-0000-000000000004', 'oil_change',     80000, 2, 4),
+  ('55555555-0000-0000-0000-000000000008', '66666666-0000-0000-0000-000000000008', 'tune_up',       175000, 2, 8),
+  ('55555555-0000-0000-0000-000000000011', '66666666-0000-0000-0000-000000000011', 'oil_change',     85000, 3, 5),
+  ('55555555-0000-0000-0000-000000000012', '66666666-0000-0000-0000-000000000012', 'oil_change',     88000, 3, 9),
+  ('55555555-0000-0000-0000-000000000006', '66666666-0000-0000-0000-000000000006', 'tune_up',       170000, 4, 6),
+  ('55555555-0000-0000-0000-000000000009', '66666666-0000-0000-0000-000000000009', 'battery_swap',  310000, 5, 7),
+  ('55555555-0000-0000-0000-000000000010', '66666666-0000-0000-0000-000000000010', 'oil_change',     95000, 5, 4),
+  ('55555555-0000-0000-0000-000000000003', '66666666-0000-0000-0000-000000000003', 'oil_change',     92000, 6, 5)
+) as p(uid, mid, svc, total, days_ago, h_from);
+
+-- Payments for all the new named-customer bookings so the earnings totals
+-- (Pendapatan hari ini + Semua waktu + 7-day bars) reflect them.
+insert into payments (user_id, booking_id, type, amount, created_at)
+select b.user_id, b.id, 'deposit', b.deposit_amount, b.created_at
+from bookings b
+where b.workshop_id = '22222222-2222-2222-2222-222222222222'
+  and b.user_id::text like '55555555-0000-0000-0000-%'
+  and b.status <> 'cancelled';
+
+insert into payments (user_id, booking_id, type, amount, created_at)
+select b.user_id, b.id, 'final',
+       greatest(0, coalesce(b.total_amount, 0) - b.deposit_amount),
+       b.updated_at
+from bookings b
+where b.workshop_id = '22222222-2222-2222-2222-222222222222'
+  and b.user_id::text like '55555555-0000-0000-0000-%'
+  and b.status = 'completed';
