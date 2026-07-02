@@ -9,6 +9,10 @@ out/
 dist/
 .expo/
 
+# expo continuous native generation — regenerated from app.json on demand
+/android/
+/ios/
+
 # env
 .env
 .env.local
