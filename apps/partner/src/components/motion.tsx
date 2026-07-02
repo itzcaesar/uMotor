@@ -22,8 +22,6 @@ import Animated, {
 export { FadeIn, FadeInDown, FadeInUp, FadeOut, LinearTransition };
 export const MotionView = Animated.View;
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
 // Snappy, slightly under-damped spring — quick press-in, soft release.
 const PRESS_SPRING = { mass: 0.4, damping: 12, stiffness: 260 } as const;
 
@@ -61,22 +59,26 @@ export function PressableScale({
     };
   });
 
+  // Pressable stays plain (single semantic element on web); the transform sits
+  // on an Animated.View WRAPPING it, so we never emit nested <button>s from
+  // Reanimated's createAnimatedComponent shim.
   return (
-    <AnimatedPressable
-      {...rest}
-      disabled={disabled}
-      onPressIn={(e) => {
-        pressed.value = 1;
-        onPressIn?.(e);
-      }}
-      onPressOut={(e) => {
-        pressed.value = 0;
-        onPressOut?.(e);
-      }}
-      style={[style, animatedStyle]}
-    >
-      {children}
-    </AnimatedPressable>
+    <Animated.View style={[style, animatedStyle]}>
+      <Pressable
+        {...rest}
+        disabled={disabled}
+        onPressIn={(e) => {
+          pressed.value = 1;
+          onPressIn?.(e);
+        }}
+        onPressOut={(e) => {
+          pressed.value = 0;
+          onPressOut?.(e);
+        }}
+      >
+        {children}
+      </Pressable>
+    </Animated.View>
   );
 }
 

@@ -149,13 +149,14 @@ export default function Inbox() {
         const badgeValue = item.slots ? slotTime : item.is_home_service ? 'Home' : '—';
         return (
           <FadeInView index={index} style={styles.cell}>
-            <PressableScale
-              style={styles.cell}
-              accessibilityRole="button"
-              accessibilityLabel={`Lihat booking ${item.users?.name ?? 'pelanggan'}`}
-              onPress={() => router.push({ pathname: '/booking/[id]', params: { id: item.id } })}
-            >
-              <Card style={styles.cellCard}>
+            <Card style={styles.cellCard}>
+              {/* Card body is the "open detail" tappable. The Terima button
+                  lives as a sibling below so we don't nest <button>s on web. */}
+              <PressableScale
+                accessibilityRole="button"
+                accessibilityLabel={`Lihat booking ${item.users?.name ?? 'pelanggan'}`}
+                onPress={() => router.push({ pathname: '/booking/[id]', params: { id: item.id } })}
+              >
                 <View style={styles.cardRow}>
                   {/* Colored slot/status badge */}
                   <View style={[styles.badge, { backgroundColor: tint }]}>
@@ -185,21 +186,21 @@ export default function Inbox() {
                     <Text style={styles.deposit}>Deposit lunas · {formatRp(item.deposit_amount)}</Text>
                   </View>
                 </View>
+              </PressableScale>
 
-                {item.status === 'pending' && (
-                  <PressableScale
-                    style={[styles.acceptBtn, accept.isPending && styles.acceptBusy]}
-                    disabled={accept.isPending}
-                    accessibilityRole="button"
-                    accessibilityLabel="Terima booking"
-                    onPress={() => accept.mutate(item.id)}
-                  >
-                    <Ionicons name="checkmark" size={16} color="#fff" />
-                    <Text style={styles.acceptText}>Terima</Text>
-                  </PressableScale>
-                )}
-              </Card>
-            </PressableScale>
+              {item.status === 'pending' && (
+                <PressableScale
+                  style={[styles.acceptBtn, accept.isPending && styles.acceptBusy]}
+                  disabled={accept.isPending}
+                  accessibilityRole="button"
+                  accessibilityLabel="Terima booking"
+                  onPress={() => accept.mutate(item.id)}
+                >
+                  <Ionicons name="checkmark" size={16} color="#fff" />
+                  <Text style={styles.acceptText}>Terima</Text>
+                </PressableScale>
+              )}
+            </Card>
           </FadeInView>
         );
       }}
