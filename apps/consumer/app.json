@@ -11,15 +11,14 @@
       "**/*"
     ],
     "ios": {
-      "icon": "./assets/expo.icon",
+      "icon": "./assets/images/icon.png",
       "bundleIdentifier": "com.umotor.consumer"
     },
     "android": {
       "package": "com.umotor.consumer",
       "adaptiveIcon": {
-        "backgroundColor": "#1374F0",
+        "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
