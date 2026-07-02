@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppState, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Stack, type ErrorBoundaryProps } from 'expo-router';
+import { router, Stack, useRootNavigationState, useSegments, type ErrorBoundaryProps } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,6 +9,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { Asset } from 'expo-asset';
 import { colors } from '@umotor/shared';
 import { CRITICAL_IMAGES } from '@/lib/preload';
+import { useSession } from '@/lib/session';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 5_000 } },
@@ -73,7 +74,28 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   );
 }
 
+// Auth gate: the Zustand session is not persisted, so a web reload / deep-link
+// entry lands inside (tabs) with workshopId=null and every query stays disabled.
+// Bounce to /login when logged out; bounce away from /login when logged in.
+function useAuthGuard() {
+  const workshopId = useSession((s) => s.workshopId);
+  const segments = useSegments();
+  const navState = useRootNavigationState();
+
+  useEffect(() => {
+    if (!navState?.key) return;
+    const first = segments[0];
+    const onAuthRoute = first === 'login' || first === 'signup';
+    if (!workshopId && !onAuthRoute) {
+      router.replace('/login');
+    } else if (workshopId && first === 'login') {
+      router.replace('/(tabs)');
+    }
+  }, [workshopId, segments, navState?.key]);
+}
+
 export default function RootLayout() {
+  useAuthGuard();
   const [fontsLoaded] = useFonts({
     Nunito_400Regular: require('../../assets/fonts/Nunito-400.ttf'),
     Nunito_500Medium: require('../../assets/fonts/Nunito-500.ttf'),
