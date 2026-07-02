@@ -215,10 +215,10 @@ export default function SparepartNew() {
               <Text style={styles.label}>Harga (Rp)</Text>
               <TextInput
                 style={styles.input}
-                value={price}
-                onChangeText={setPrice}
+                value={price ? Number(price).toLocaleString('id-ID') : ''}
+                onChangeText={(t) => setPrice(t.replace(/\D/g, ''))}
                 keyboardType="number-pad"
-                placeholder="65000"
+                placeholder="65.000"
                 placeholderTextColor="#98a2b3"
               />
             </View>
@@ -226,10 +226,10 @@ export default function SparepartNew() {
               <Text style={styles.label}>Biaya pasang (Rp)</Text>
               <TextInput
                 style={styles.input}
-                value={installFee}
-                onChangeText={setInstallFee}
+                value={installFee ? Number(installFee).toLocaleString('id-ID') : ''}
+                onChangeText={(t) => setInstallFee(t.replace(/\D/g, ''))}
                 keyboardType="number-pad"
-                placeholder="15000"
+                placeholder="15.000"
                 placeholderTextColor="#98a2b3"
               />
             </View>

@@ -170,19 +170,19 @@ export default function Signup() {
           <View style={styles.priceRow}>
             <TextInput
               style={[styles.input, styles.priceInput]}
-              value={priceMin}
-              onChangeText={setPriceMin}
+              value={priceMin ? Number(priceMin).toLocaleString('id-ID') : ''}
+              onChangeText={(t) => setPriceMin(t.replace(/\D/g, ''))}
               keyboardType="number-pad"
-              placeholder="40000"
+              placeholder="40.000"
               placeholderTextColor="#98a2b3"
             />
             <Text style={styles.priceDash}>—</Text>
             <TextInput
               style={[styles.input, styles.priceInput]}
-              value={priceMax}
-              onChangeText={setPriceMax}
+              value={priceMax ? Number(priceMax).toLocaleString('id-ID') : ''}
+              onChangeText={(t) => setPriceMax(t.replace(/\D/g, ''))}
               keyboardType="number-pad"
-              placeholder="120000"
+              placeholder="120.000"
               placeholderTextColor="#98a2b3"
             />
           </View>
@@ -205,10 +205,10 @@ export default function Signup() {
                 <Text style={styles.label}>Biaya (Rp)</Text>
                 <TextInput
                   style={styles.input}
-                  value={homeFee}
-                  onChangeText={setHomeFee}
+                  value={homeFee ? Number(homeFee).toLocaleString('id-ID') : ''}
+                  onChangeText={(t) => setHomeFee(t.replace(/\D/g, ''))}
                   keyboardType="number-pad"
-                  placeholder="30000"
+                  placeholder="30.000"
                   placeholderTextColor="#98a2b3"
                 />
               </View>
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
   typeHint: { color: '#98a2b3', fontSize: 11 },
   typeHintActive: { color: '#4a78c9' },
   priceRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  priceInput: { flex: 1 },
+  priceInput: { flex: 1, minWidth: 0 },
   priceDash: { color: '#98a2b3', fontWeight: '700' },
   switchRow: {
     flexDirection: 'row',
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
   switchTitle: { fontWeight: '700', color: '#0b1727', fontSize: 14 },
   switchSub: { color: '#667085', fontSize: 12 },
   homeFields: { flexDirection: 'row', gap: 12, marginTop: 4 },
-  homeField: { flex: 1 },
+  homeField: { flex: 1, minWidth: 0 },
   submit: {
     marginTop: 4,
     backgroundColor: colors.primary,

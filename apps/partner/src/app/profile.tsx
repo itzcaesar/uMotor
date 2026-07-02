@@ -197,16 +197,16 @@ export default function Profile() {
           <View style={styles.priceRow}>
             <TextInput
               style={[styles.input, styles.priceInput]}
-              value={priceMin}
-              onChangeText={setPriceMin}
+              value={priceMin ? Number(priceMin).toLocaleString('id-ID') : ''}
+              onChangeText={(t) => setPriceMin(t.replace(/\D/g, ''))}
               keyboardType="number-pad"
               placeholderTextColor={astra.faint}
             />
             <Text style={styles.priceDash}>—</Text>
             <TextInput
               style={[styles.input, styles.priceInput]}
-              value={priceMax}
-              onChangeText={setPriceMax}
+              value={priceMax ? Number(priceMax).toLocaleString('id-ID') : ''}
+              onChangeText={(t) => setPriceMax(t.replace(/\D/g, ''))}
               keyboardType="number-pad"
               placeholderTextColor={astra.faint}
             />
@@ -233,8 +233,8 @@ export default function Profile() {
                 <Text style={styles.label}>Biaya (Rp)</Text>
                 <TextInput
                   style={styles.input}
-                  value={homeFee}
-                  onChangeText={setHomeFee}
+                  value={homeFee ? Number(homeFee).toLocaleString('id-ID') : ''}
+                  onChangeText={(t) => setHomeFee(t.replace(/\D/g, ''))}
                   keyboardType="number-pad"
                   placeholderTextColor={astra.faint}
                 />
@@ -378,14 +378,14 @@ const styles = StyleSheet.create({
   typeLabel: { fontWeight: '800', color: astra.ink, fontSize: 14 },
   typeLabelActive: { color: astra.primary },
   priceRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  priceInput: { flex: 1 },
+  priceInput: { flex: 1, minWidth: 0 },
   priceDash: { color: astra.faint, fontWeight: '700' },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   switchText: { flex: 1, gap: 2 },
   switchTitle: { fontWeight: '700', color: astra.ink, fontSize: 14 },
   switchSub: { color: astra.sub, fontSize: 12 },
   homeFields: { flexDirection: 'row', gap: 12, marginTop: 4 },
-  homeField: { flex: 1 },
+  homeField: { flex: 1, minWidth: 0 },
   saveBtn: {
     flexDirection: 'row',
     alignItems: 'center',
