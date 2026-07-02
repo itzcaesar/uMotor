@@ -5,6 +5,9 @@
         "projectId": "b3dc4b6e-1c93-4df9-894a-5e0485841ce4"
       }
     },
-    "owner": "caesarrifqi"
+    "owner": "caesarrifqi",
+    "android": {
+      "package": "com.caesarrifqi.umotor"
+    }
   }
 }
