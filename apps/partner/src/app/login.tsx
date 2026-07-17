@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { astra, figAssets } from '@/components/ui';
 import { LoginScene } from '@/components/LoginScene';
+import { ensureDemoWorkshopReady } from '@/lib/demo-data';
 import { useSession } from '@/lib/session';
 import { isConfigured } from '@/lib/supabase';
 
@@ -13,12 +14,17 @@ export default function Login() {
   const [busy, setBusy] = useState(false);
   const { width } = useWindowDimensions();
 
-  const onLogin = () => {
+  const onLogin = async () => {
     setBusy(true);
-    setTimeout(() => {
-      login();
-      router.replace('/(tabs)');
-    }, 1000);
+    // Best-effort demo refresh: keep today's dashboard/queue lively and make
+    // sure the default workshop has real WIB working-hour slots. Never block
+    // access if the network is flaky on stage.
+    await Promise.race([
+      ensureDemoWorkshopReady().catch((e) => console.warn('[demo-data] refresh failed', e)),
+      new Promise((resolve) => setTimeout(resolve, 3000)),
+    ]);
+    login();
+    router.replace('/(tabs)');
   };
 
   return (

@@ -259,9 +259,10 @@ export function SetupNotice() {
     <Card className="max-w-xl">
       <h2 className="text-lg font-semibold">Supabase belum dikonfigurasi</h2>
       <p className="mt-2 text-muted">
-        Salin <code className="rounded bg-primary-soft px-1 text-primary">.env.example</code> ke{" "}
-        <code className="rounded bg-primary-soft px-1 text-primary">.env.local</code> lalu isi URL dan anon key dari
-        project Supabase (Settings → API). Jalankan migration + seed dulu:{" "}
+        Isi URL dan anon key Supabase di <code className="rounded bg-primary-soft px-1 text-primary">.env.local</code>{" "}
+        memakai <code className="rounded bg-primary-soft px-1 text-primary">NEXT_PUBLIC_SUPABASE_*</code>, atau gunakan
+        konfigurasi <code className="rounded bg-primary-soft px-1 text-primary">EXPO_PUBLIC_SUPABASE_*</code> yang sama
+        dengan aplikasi mobile. Jalankan migration + seed dulu:{" "}
         <code className="rounded bg-primary-soft px-1 text-primary">supabase db reset --linked</code>.
       </p>
     </Card>

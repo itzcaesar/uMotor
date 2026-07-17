@@ -11,6 +11,7 @@
 // when present, then poll status until terminal.
 
 import * as Linking from 'expo-linking';
+import { Platform } from 'react-native';
 import {
   astrapayBind,
   astrapayLink,
@@ -41,6 +42,46 @@ export const ASTRAPAY_LIVE = (process.env.EXPO_PUBLIC_ASTRAPAY_LIVE ?? '1') !== 
 // the (possibly non-resolving) domain never matters — it's purely a return token.
 const ASTRAPAY_FINISH_BIND = 'https://umotor.app/astrapay/bound';
 const ASTRAPAY_FINISH_PAY = 'https://umotor.app/astrapay/paid';
+const WEB_BIND_PENDING_KEY = 'umotor:astrapay-bind:v1';
+const WEB_BIND_MAX_AGE_MS = 10 * 60 * 1000;
+
+interface WebBindPending {
+  userId: string;
+  phone?: string;
+  responseAuthCode?: string;
+  startedAt: number;
+}
+
+function webBindingFinishUrl() {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    // Same-origin return preserves sessionStorage across the round trip. The
+    // AstraPay sandbox accepts Expo's localhost HTTP URL as finishBindingUrl.
+    return new URL('/astrapay/bound', window.location.origin).toString();
+  }
+  return ASTRAPAY_FINISH_BIND;
+}
+
+function saveWebBindPending(pending: WebBindPending) {
+  if (Platform.OS !== 'web' || typeof sessionStorage === 'undefined') return;
+  sessionStorage.setItem(WEB_BIND_PENDING_KEY, JSON.stringify(pending));
+}
+
+function readWebBindPending(): WebBindPending | null {
+  if (Platform.OS !== 'web' || typeof sessionStorage === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(WEB_BIND_PENDING_KEY);
+    if (!raw) return null;
+    const pending = JSON.parse(raw) as WebBindPending;
+    if (!pending.userId || Date.now() - pending.startedAt > WEB_BIND_MAX_AGE_MS) {
+      sessionStorage.removeItem(WEB_BIND_PENDING_KEY);
+      return null;
+    }
+    return pending;
+  } catch {
+    sessionStorage.removeItem(WEB_BIND_PENDING_KEY);
+    return null;
+  }
+}
 
 const STATUS_COPY: Record<AstraPayTxnStatus, string> = {
   SUCCESS: 'berhasil',
@@ -187,6 +228,36 @@ function extractAuthCode(rawUrl: string): string | undefined {
 }
 
 /**
+ * Resume a web binding after AstraPay navigates the same browser tab back to
+ * `/astrapay/bound`. The original page has unloaded, so the short-lived resume
+ * payload is read from sessionStorage and immediately removed.
+ */
+export async function resumeAstraPayWebBinding(
+  returnUrl: string,
+): Promise<{ walletBound: boolean; completed: boolean }> {
+  const pending = readWebBindPending();
+  if (!pending) return { walletBound: false, completed: false };
+
+  const authCode = extractAuthCode(returnUrl) ?? pending.responseAuthCode;
+  sessionStorage.removeItem(WEB_BIND_PENDING_KEY);
+  if (!authCode) return { walletBound: false, completed: true };
+
+  try {
+    const link = await astrapayLink(supabase, {
+      userId: pending.userId,
+      authCode,
+      phoneNo: pending.phone,
+    });
+    return { walletBound: !!link.bound, completed: true };
+  } catch (e) {
+    // The hosted authorization was still completed even if the sandbox's
+    // one-time token exchange is flaky. Payments can use push-payment later.
+    console.warn('[astrapay] web link failed', e);
+    return { walletBound: false, completed: true };
+  }
+}
+
+/**
  * Link the user's AstraPay wallet: start binding → open the webview (phone +
  * OTP 111111 + PIN) → best-effort capture the authCode from the finish redirect
  * → exchange + persist the wallet token server-side.
@@ -204,10 +275,10 @@ export async function bindAstraPay(
 ): Promise<{ walletBound: boolean; completed: boolean }> {
   if (!ASTRAPAY_LIVE) return { walletBound: false, completed: false };
 
-  // AstraPay expects digits only — Profile passes "0853-4886-1424" (dashes),
-  // login passes digits; normalize both here.
+  // AstraPay expects digits only when a caller chooses to prefill the hosted
+  // form. Leaving this undefined keeps the phone input editable.
   const phone = opts.phone?.replace(/\D/g, '');
-  const finishBindingUrl = ASTRAPAY_FINISH_BIND;
+  const finishBindingUrl = webBindingFinishUrl();
   const res = await astrapayBind(supabase, {
     finishBindingUrl,
     externalUid: userId,
@@ -226,10 +297,20 @@ export async function bindAstraPay(
   // (post-auth) authCode — prefer it if the webview happens to surface one.
   const responseAuthCode = (res.json.additionalInfo as { authCode?: string } | undefined)?.authCode;
 
+  if (Platform.OS === 'web') {
+    saveWebBindPending({
+      userId,
+      phone,
+      responseAuthCode,
+      startedAt: Date.now(),
+    });
+  }
+
   const result = await openAstraPayBrowser({
     url,
     finishUrl: finishBindingUrl,
     title: 'Hubungkan AstraPay',
+    webMode: Platform.OS === 'web' ? 'same-tab' : undefined,
   });
   // The webview resolves 'success' only when AstraPay redirects back after a real
   // OTP/PIN authorization — a reliable "the user went through AstraPay" signal.
@@ -254,27 +335,4 @@ export async function bindAstraPay(
 export async function unbindAstraPay(userId: string): Promise<void> {
   if (!ASTRAPAY_LIVE) return;
   await astrapayUnlink(supabase, { userId });
-}
-
-/**
- * Has this user already linked their AstraPay wallet? Lets login skip the
- * OTP/PIN binding webview for a returning user — the local session is cleared on
- * logout, but the wallet link persists on the users row across sessions.
- *
- * Token expiry is intentionally ignored: a lapsed token doesn't unlink the
- * wallet (payments just fall back to push-payment), so it must not force a
- * re-bind at login. Refreshing the token is a deliberate Profile action.
- */
-export async function isAstraPayBound(userId: string): Promise<boolean> {
-  if (!ASTRAPAY_LIVE) return false;
-  try {
-    const { data } = await supabase
-      .from('users')
-      .select('astrapay_bound_at')
-      .eq('id', userId)
-      .single();
-    return !!(data as { astrapay_bound_at?: string | null } | null)?.astrapay_bound_at;
-  } catch {
-    return false;
-  }
 }

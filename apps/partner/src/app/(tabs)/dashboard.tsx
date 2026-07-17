@@ -16,6 +16,7 @@ import {
 import { ActionTile, Card, ErrorState, astra, figAssets, useIsWide } from '@/components/ui';
 import { GreetingBar } from '@/components/GreetingBar';
 import { FadeInView, PressableScale } from '@/components/motion';
+import { jakartaDateKey, jakartaDayStart, jakartaWeekday } from '@/lib/dates';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
 
@@ -33,12 +34,6 @@ interface DayBucket {
   isToday: boolean;
 }
 
-function startOfDay(d: Date) {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-
 type Range = 'today' | 'all';
 
 export default function Dashboard() {
@@ -53,8 +48,7 @@ export default function Dashboard() {
     // Polling fallback: stats stay fresh even if the realtime channel drops on stage.
     refetchInterval: 15_000,
     queryFn: async () => {
-      const since = startOfDay(new Date());
-      since.setDate(since.getDate() - 6);
+      const since = jakartaDayStart(new Date(), -6);
       const [rowsRes, activeRes, allRes, wRes] = await Promise.all([
         supabase
           .from('bookings')
@@ -82,28 +76,25 @@ export default function Dashboard() {
       if (wRes.error) throw wRes.error;
 
       const rows = (rowsRes.data ?? []) as unknown as StatsRow[];
-      const todayKey = new Date().toDateString();
+      const todayKey = jakartaDateKey();
 
       // 7-day bar chart, oldest → today
       const days: DayBucket[] = Array.from({ length: 7 }, (_, i) => {
-        const d = new Date();
-        d.setDate(d.getDate() - (6 - i));
-        return { label: DAY_LABELS[d.getDay()], count: 0, isToday: i === 6 };
+        const d = jakartaDayStart(new Date(), -(6 - i));
+        return { label: DAY_LABELS[jakartaWeekday(d)], count: 0, isToday: i === 6 };
       });
       const dayIndex = new Map<string, number>();
       for (let i = 0; i < 7; i++) {
-        const d = new Date();
-        d.setDate(d.getDate() - (6 - i));
-        dayIndex.set(d.toDateString(), i);
+        dayIndex.set(jakartaDateKey(jakartaDayStart(new Date(), -(6 - i))), i);
       }
       for (const r of rows) {
-        const idx = dayIndex.get(new Date(r.created_at).toDateString());
+        const idx = dayIndex.get(jakartaDateKey(r.created_at));
         if (idx != null) days[idx].count += 1;
       }
 
       const completed = rows.filter((r) => r.status === 'completed');
       const completedToday = completed.filter(
-        (r) => new Date(r.updated_at).toDateString() === todayKey,
+        (r) => jakartaDateKey(r.updated_at) === todayKey,
       );
       const grossToday = completedToday.reduce((s, r) => s + (r.total_amount ?? 0), 0);
       const grossWeek = completed.reduce((s, r) => s + (r.total_amount ?? 0), 0);
@@ -134,7 +125,7 @@ export default function Dashboard() {
       return {
         workshop: wRes.data as Workshop,
         days,
-        newToday: rows.filter((r) => new Date(r.created_at).toDateString() === todayKey).length,
+        newToday: rows.filter((r) => jakartaDateKey(r.created_at) === todayKey).length,
         activeCount: activeRes.count ?? 0,
         pendingWeek: byStatus.get('pending') ?? 0,
         completedToday: completedToday.length,
@@ -421,8 +412,8 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 30,
   },
   balLabel: { color: '#dbe9ff', fontSize: 11, fontWeight: '600' },
-  balValueRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 4 },
-  balRp: { color: '#fff', fontSize: 12, fontWeight: '700', marginBottom: 4 },
+  balValueRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 4 },
+  balRp: { color: '#fff', fontSize: 12, fontWeight: '700', marginTop: 2 },
   balValue: { color: '#fff', fontSize: 36, fontWeight: '800', flex: 1 },
   balBtns: { flexDirection: 'row', gap: 6, marginTop: 2 },
   balBtn: {

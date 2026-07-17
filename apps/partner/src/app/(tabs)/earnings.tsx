@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card, ErrorState, SectionTitle, astra, useIsWide } from '@/components/ui';
 import { GreetingBar } from '@/components/GreetingBar';
 import { FadeInView, PressableScale } from '@/components/motion';
+import { jakartaDateKey, jakartaDayStart, jakartaWeekday } from '@/lib/dates';
 import { notify } from '@/lib/dialog';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
@@ -45,8 +46,8 @@ export default function Earnings() {
         .limit(1000);
       if (error) throw error;
       const all = (rows ?? []) as unknown as CompletedRow[];
-      const today = new Date().toDateString();
-      const todayRows = all.filter((r) => new Date(r.updated_at).toDateString() === today);
+      const today = jakartaDateKey();
+      const todayRows = all.filter((r) => jakartaDateKey(r.updated_at) === today);
       const grossToday = todayRows.reduce((s, r) => s + (r.total_amount ?? 0), 0);
       const grossAll = all.reduce((s, r) => s + (r.total_amount ?? 0), 0);
       return { all, todayRows, grossToday, grossAll };
@@ -63,16 +64,17 @@ export default function Earnings() {
   const days = useMemo(() => {
     const all = data.data?.all ?? [];
     const buckets = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date();
-      d.setHours(0, 0, 0, 0);
-      d.setDate(d.getDate() - (6 - i));
-      return { label: DAY_LABELS[d.getDay()], key: d.toDateString(), gross: 0, isToday: i === 6 };
+      const d = jakartaDayStart(new Date(), -(6 - i));
+      return {
+        label: DAY_LABELS[jakartaWeekday(d)],
+        key: jakartaDateKey(d),
+        gross: 0,
+        isToday: i === 6,
+      };
     });
     const idx = new Map(buckets.map((b, i) => [b.key, i]));
     for (const r of all) {
-      const d = new Date(r.updated_at);
-      d.setHours(0, 0, 0, 0);
-      const i = idx.get(d.toDateString());
+      const i = idx.get(jakartaDateKey(r.updated_at));
       if (i != null) buckets[i].gross += r.total_amount ?? 0;
     }
     return buckets.map((b) => ({
@@ -274,7 +276,7 @@ const styles = StyleSheet.create({
   heroBrand: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   heroBrandText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   heroValueRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
-  heroRp: { color: '#fff', fontSize: 18, fontWeight: '700', marginTop: 8 },
+  heroRp: { color: '#fff', fontSize: 18, fontWeight: '700', marginTop: 2 },
   heroValue: { color: '#fff', fontSize: 46, fontWeight: '800', letterSpacing: -1 },
   heroFootRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
   heroFoot: { color: astra.onHero, fontSize: 12, fontWeight: '600' },

@@ -6,11 +6,7 @@ import Animated, {
   FadeInUp,
   FadeOut,
   LinearTransition,
-  useAnimatedStyle,
   useReducedMotion,
-  useSharedValue,
-  withSpring,
-  withTiming,
 } from 'react-native-reanimated';
 
 // ── Shared motion primitives (Reanimated 4, UI-thread) ─────────────────────
@@ -21,9 +17,6 @@ import Animated, {
 
 export { FadeIn, FadeInDown, FadeInUp, FadeOut, LinearTransition };
 export const MotionView = Animated.View;
-
-// Snappy, slightly under-damped spring — quick press-in, soft release.
-const PRESS_SPRING = { mass: 0.4, damping: 12, stiffness: 260 } as const;
 
 export type PressableScaleProps = Omit<PressableProps, 'style' | 'children'> & {
   children?: ReactNode;
@@ -49,36 +42,26 @@ export function PressableScale({
   ...rest
 }: PressableScaleProps) {
   const reduced = useReducedMotion();
-  const pressed = useSharedValue(0);
 
-  const animatedStyle = useAnimatedStyle(() => {
-    const target = reduced ? 1 : 1 - pressed.value * (1 - scale);
-    return {
-      transform: [{ scale: withSpring(target, PRESS_SPRING) }],
-      opacity: dim ? withTiming(1 - pressed.value * 0.12, { duration: 90 }) : 1,
-    };
-  });
-
-  // Pressable stays plain (single semantic element on web); the transform sits
-  // on an Animated.View WRAPPING it, so we never emit nested <button>s from
-  // Reanimated's createAnimatedComponent shim.
+  // Keep the layout/style on the actual Pressable. The previous Animated.View
+  // wrapper owned padding/background while its child button only wrapped the
+  // icon and label, leaving most of buttons such as "Terima" non-clickable on
+  // web. Pressable's native pressed-state style gives us the same feedback
+  // without shrinking the semantic hitbox.
   return (
-    <Animated.View style={[style, animatedStyle]}>
-      <Pressable
-        {...rest}
-        disabled={disabled}
-        onPressIn={(e) => {
-          pressed.value = 1;
-          onPressIn?.(e);
-        }}
-        onPressOut={(e) => {
-          pressed.value = 0;
-          onPressOut?.(e);
-        }}
-      >
-        {children}
-      </Pressable>
-    </Animated.View>
+    <Pressable
+      {...rest}
+      disabled={disabled}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={({ pressed }) => [
+        style,
+        !reduced && pressed && { transform: [{ scale }] },
+        dim && pressed && { opacity: 0.88 },
+      ]}
+    >
+      {children}
+    </Pressable>
   );
 }
 

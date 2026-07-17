@@ -52,18 +52,27 @@ export const useAstraPayBrowser = create<BrowserState>((set, get) => ({
 /**
  * Open the AstraPay flow and resolve when it finishes/closes.
  *
- * Native → in-app WebView modal (the user never leaves the app). Web →
- * `expo-web-browser` popup, because react-native-webview can't embed a
- * cross-origin payment page in a browser (X-Frame-Options blocks the iframe →
- * it would hang on "Memuat"). Web is only the smoke-test target anyway.
+ * Native → in-app WebView modal (the user never leaves the app). Web account
+ * binding → same-tab redirect and callback resume. Web payments retain the
+ * `expo-web-browser` popup because their longer status-polling promise must stay
+ * alive and the cross-origin page cannot be framed.
  */
 export async function openAstraPayBrowser(opts: {
   url: string;
   finishUrl: string;
   title?: string;
   detectSuccess?: boolean;
+  /** Web login can replace the current tab; payments keep their popup flow. */
+  webMode?: 'popup' | 'same-tab';
 }): Promise<AstraPayBrowserResult> {
   if (Platform.OS === 'web') {
+    if (opts.webMode === 'same-tab') {
+      // Account binding persists its resume payload before reaching here. The
+      // callback consumes it after AstraPay navigates this tab back to uMotor,
+      // so this promise intentionally never resolves in this document.
+      window.location.assign(opts.url);
+      return new Promise(() => {});
+    }
     try {
       const r = await WebBrowser.openAuthSessionAsync(opts.url, opts.finishUrl);
       return r.type === 'success' && r.url ? { type: 'success', url: r.url } : { type: 'cancel' };

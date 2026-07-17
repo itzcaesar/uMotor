@@ -121,10 +121,10 @@ function useAuthGuard() {
 
   useEffect(() => {
     if (!navState?.key) return; // wait until the navigator is mounted
-    const onLogin = segments[0] === 'login';
-    if (!userId && !onLogin) {
+    const onAuthRoute = segments[0] === 'login' || segments[0] === 'astrapay';
+    if (!userId && !onAuthRoute) {
       router.replace('/login');
-    } else if (userId && onLogin) {
+    } else if (userId && segments[0] === 'login') {
       router.replace('/(tabs)');
     }
   }, [userId, segments, navState?.key]);

@@ -236,14 +236,16 @@ export function Pill({
   label,
   active,
   onPress,
+  style,
 }: {
   label: string;
   active?: boolean;
   onPress?: () => void;
+  style?: StyleProp<ViewStyle>;
 }) {
   return (
     <PressableScale
-      style={[styles.pill, active && styles.pillActive]}
+      style={[styles.pill, style, active && styles.pillActive]}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected: !!active }}
@@ -291,11 +293,19 @@ export function PrimaryButton({
   );
 }
 
-export function StatusBadge({ status }: { status: BookingStatus }) {
+const COMPACT_STATUS_LABELS: Partial<Record<BookingStatus, string>> = {
+  pending: 'Menunggu',
+  confirmed: 'Diterima',
+  checked_in: 'Check-in',
+  in_progress: 'Dikerjakan',
+};
+
+export function StatusBadge({ status, compact = false }: { status: BookingStatus; compact?: boolean }) {
   const color = statusColor[status];
+  const label = compact ? (COMPACT_STATUS_LABELS[status] ?? STATUS_LABELS[status]) : STATUS_LABELS[status];
   return (
     <View style={[styles.badge, { backgroundColor: color + '22' }]}>
-      <Text style={[styles.badgeText, { color }]}>{STATUS_LABELS[status]}</Text>
+      <Text style={[styles.badgeText, { color }]} numberOfLines={1}>{label}</Text>
     </View>
   );
 }
@@ -371,7 +381,7 @@ const styles = StyleSheet.create({
   },
   primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   btnBusy: { opacity: 0.6 },
-  badge: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start' },
+  badge: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start', flexShrink: 0 },
   badgeText: { fontSize: 12, fontWeight: '700' },
   errorWrap: { alignItems: 'center', gap: 10, marginTop: 48 },
   errorText: { color: astra.faint, fontSize: 14 },

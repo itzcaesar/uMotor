@@ -5,10 +5,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Ellipse } from 'react-native-svg';
-import { DEMO_USER_ID, DEMO_USER_PHONE } from '@umotor/shared';
+import { DEMO_USER_ID } from '@umotor/shared';
 import { Illustration } from '@/components/Illustration';
 import { umotor, useResponsive } from '@/components/ui';
-import { ASTRAPAY_LIVE, bindAstraPay, isAstraPayBound } from '@/lib/astrapay';
+import { ASTRAPAY_LIVE, bindAstraPay } from '@/lib/astrapay';
 import { useSession } from '@/lib/session';
 import { isConfigured } from '@/lib/supabase';
 
@@ -42,17 +42,14 @@ export default function Login() {
       enterApp();
       return;
     }
-    // Strict AstraPay login: a returning, already-linked wallet enters instantly;
-    // otherwise the user MUST complete the real AstraPay binding (number + OTP
-    // 111111 + PIN). Closing the webview leaves them on the login screen.
+    // Demo-day login always shows the real AstraPay flow (number + OTP 111111
+    // + PIN). Wallet binding persists for payments, but must never short-circuit
+    // the on-stage login story after a fresh app launch.
     try {
-      if (await isAstraPayBound(DEMO_USER_ID)) {
-        enterApp();
-        return;
-      }
-      const { walletBound, completed } = await bindAstraPay(DEMO_USER_ID, {
-        phone: DEMO_USER_PHONE.replace(/\D/g, ''),
-      });
+      // Do not prefill phoneNo in the binding request. AstraPay intentionally
+      // marks a supplied phone number as read-only on its hosted login page,
+      // which makes the field look broken when the user needs to change/type it.
+      const { walletBound, completed } = await bindAstraPay(DEMO_USER_ID);
       if (walletBound || completed) {
         enterApp();
         return;

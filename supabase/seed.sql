@@ -55,14 +55,17 @@ insert into services (code, name, duration_min, base_price) values
   ('battery_swap', 'Ganti aki',     45, 50000),
   ('pasang_sparepart', 'Pasang sparepart', 30, 0); -- marketplace "Pasang di bengkel" orders
 
--- Slots: next 7 days, 09:00–16:00 hourly, for the 5 featured workshops.
+-- Slots: next 7 days, 09:00–17:00 WIB, for the 5 featured workshops.
+-- Build the local wall-clock timestamp first, then attach Asia/Jakarta. Casting
+-- 09:00 directly to timestamptz in Supabase (UTC) made the app show 16:00 WIB.
 insert into slots (workshop_id, slot_at, capacity)
 select w.id,
-       (current_date + d)::timestamp + make_interval(hours => h),
+       (((now() at time zone 'Asia/Jakarta')::date + d)::timestamp
+         + make_interval(hours => h)) at time zone 'Asia/Jakarta',
        1 + (h % 2)
 from (select id from workshops order by created_at limit 5) w
 cross join generate_series(0, 6) d
-cross join generate_series(9, 16) h;
+cross join generate_series(9, 17) h;
 
 -- Spareparts: each has a seller workshop + install fee (added on "Pasang di bengkel").
 -- install_fee is per-part and will later be editable in the Workshop app.
@@ -329,7 +332,7 @@ with today_slots as (
   select id, (row_number() over (order by slot_at))::int as rn
   from slots
   where workshop_id = '22222222-2222-2222-2222-222222222222'
-    and slot_at::date = current_date
+    and (slot_at at time zone 'Asia/Jakarta')::date = (now() at time zone 'Asia/Jakarta')::date
 ),
 pick as (
   select u.id as user_id,
@@ -350,7 +353,7 @@ where id in (
   select id from (
     select id, row_number() over (order by slot_at) rn
     from slots where workshop_id = '22222222-2222-2222-2222-222222222222'
-      and slot_at::date = current_date
+      and (slot_at at time zone 'Asia/Jakarta')::date = (now() at time zone 'Asia/Jakarta')::date
   ) s where rn <= 3
 );
 
@@ -454,7 +457,7 @@ with pending_slots as (
   select id, (row_number() over (order by slot_at))::int as rn
   from slots
   where workshop_id = '22222222-2222-2222-2222-222222222222'
-    and slot_at::date = current_date + 1
+    and (slot_at at time zone 'Asia/Jakarta')::date = (now() at time zone 'Asia/Jakarta')::date + 1
 )
 insert into bookings (user_id, motorcycle_id, workshop_id, slot_id, service_id, status,
                       total_amount, deposit_amount, created_at, updated_at)
@@ -478,7 +481,7 @@ where id in (
   select id from (
     select id, row_number() over (order by slot_at) rn
     from slots where workshop_id = '22222222-2222-2222-2222-222222222222'
-      and slot_at::date = current_date + 1
+      and (slot_at at time zone 'Asia/Jakarta')::date = (now() at time zone 'Asia/Jakarta')::date + 1
   ) x where rn between 1 and 4
 );
 
@@ -502,7 +505,7 @@ with today_slots as (
   select id, (row_number() over (order by slot_at))::int as rn
   from slots
   where workshop_id = '22222222-2222-2222-2222-222222222222'
-    and slot_at::date = current_date
+    and (slot_at at time zone 'Asia/Jakarta')::date = (now() at time zone 'Asia/Jakarta')::date
 )
 insert into bookings (user_id, motorcycle_id, workshop_id, slot_id, service_id, status,
                       total_amount, deposit_amount, created_at, updated_at)
@@ -527,7 +530,7 @@ where id in (
   select id from (
     select id, row_number() over (order by slot_at) rn
     from slots where workshop_id = '22222222-2222-2222-2222-222222222222'
-      and slot_at::date = current_date
+      and (slot_at at time zone 'Asia/Jakarta')::date = (now() at time zone 'Asia/Jakarta')::date
   ) x where rn between 4 and 8
 );
 

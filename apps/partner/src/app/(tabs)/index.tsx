@@ -19,9 +19,10 @@ import {
   type Booking,
   type BookingStatus,
 } from '@umotor/shared';
-import { Card, ErrorState, SectionTitle, StatusBadge, astra, colors, useIsWide } from '@/components/ui';
+import { Card, ErrorState, StatusBadge, astra, colors, useIsWide } from '@/components/ui';
 import { GreetingBar } from '@/components/GreetingBar';
 import { FadeInView, PressableScale } from '@/components/motion';
+import { jakartaDateKey } from '@/lib/dates';
 import { notify } from '@/lib/dialog';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
@@ -70,8 +71,13 @@ export default function Inbox() {
         .order('created_at', { ascending: false });
       if (error) throw error;
       // Sparepart install orders live in their own tab, not the service inbox.
+      const today = jakartaDateKey();
       return ((data ?? []) as InboxRow[]).filter(
-        (b) => b.services?.code !== INSTALL_SERVICE_CODE,
+        (b) =>
+          b.services?.code !== INSTALL_SERVICE_CODE &&
+          // Do not keep stale slotted work in the inbox forever. Home-service
+          // requests have no slot and remain visible until handled.
+          (!b.slots || jakartaDateKey(b.slots.slot_at) >= today),
       );
     },
   });
@@ -89,7 +95,6 @@ export default function Inbox() {
 
   const header = (
     <View style={styles.headerWrap}>
-      <SectionTitle>Inbox</SectionTitle>
       <View style={styles.searchWrap}>
         <Ionicons name="search" size={16} color={astra.faint} />
         <TextInput
@@ -172,7 +177,7 @@ export default function Inbox() {
                       <Text style={styles.customer} numberOfLines={1}>
                         {item.users?.name ?? '—'}
                       </Text>
-                      <StatusBadge status={item.status} />
+                      <StatusBadge status={item.status} compact />
                     </View>
                     <Text style={styles.bike} numberOfLines={1}>
                       {item.motorcycles
@@ -264,9 +269,9 @@ const styles = StyleSheet.create({
   badgeLabel: { color: 'rgba(255,255,255,0.85)', fontSize: 9, fontWeight: '700' },
   badgeValue: { color: '#fff', fontSize: 15, fontWeight: '800' },
 
-  info: { flex: 1, gap: 2 },
-  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
-  customer: { flex: 1, fontSize: 15, fontWeight: '800', color: astra.ink },
+  info: { flex: 1, minWidth: 0, gap: 2 },
+  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, minWidth: 0 },
+  customer: { flex: 1, minWidth: 0, fontSize: 15, lineHeight: 18, fontWeight: '800', color: astra.ink },
   bike: { color: astra.sub, fontSize: 13 },
   service: { color: astra.ink, fontSize: 13, fontWeight: '600' },
   deposit: { color: '#00a86b', fontSize: 12, fontWeight: '700', marginTop: 1 },

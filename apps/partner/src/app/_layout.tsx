@@ -24,21 +24,21 @@ try {
   // setOptions is a no-op on platforms that don't support it.
 }
 
-// ── Global Nunito (Figma uses a rounded face) ──────────────────────────────
+// ── Global SF Pro Display (same family as the consumer app) ───────────────
 // Custom fonts don't synthesize weights, so map each fontWeight to the matching
-// Nunito family and inject it into every <Text>/<TextInput> render once.
-const NUNITO: Record<string, string> = {
-  '100': 'Nunito_400Regular',
-  '200': 'Nunito_400Regular',
-  '300': 'Nunito_400Regular',
-  '400': 'Nunito_400Regular',
-  normal: 'Nunito_400Regular',
-  '500': 'Nunito_500Medium',
-  '600': 'Nunito_600SemiBold',
-  '700': 'Nunito_700Bold',
-  bold: 'Nunito_700Bold',
-  '800': 'Nunito_800ExtraBold',
-  '900': 'Nunito_800ExtraBold',
+// SF Pro face and inject it into every <Text>/<TextInput> render once.
+const SF: Record<string, string> = {
+  '100': 'SFProDisplay-Regular',
+  '200': 'SFProDisplay-Regular',
+  '300': 'SFProDisplay-Regular',
+  '400': 'SFProDisplay-Regular',
+  normal: 'SFProDisplay-Regular',
+  '500': 'SFProDisplay-Medium',
+  '600': 'SFProDisplay-Medium',
+  '700': 'SFProDisplay-Bold',
+  bold: 'SFProDisplay-Bold',
+  '800': 'SFProDisplay-Bold',
+  '900': 'SFProDisplay-Bold',
 };
 let fontsPatched = false;
 function patchTextFonts() {
@@ -51,7 +51,7 @@ function patchTextFonts() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     Comp.render = function (props: any, ref: any) {
       const flat = (StyleSheet.flatten(props?.style) ?? {}) as { fontWeight?: string | number };
-      const fam = NUNITO[String(flat.fontWeight ?? '400')] ?? 'Nunito_400Regular';
+      const fam = SF[String(flat.fontWeight ?? '400')] ?? 'SFProDisplay-Regular';
       return orig.call(this, { ...props, style: [{ fontFamily: fam }, props?.style] }, ref);
     };
   }
@@ -97,11 +97,9 @@ function useAuthGuard() {
 export default function RootLayout() {
   useAuthGuard();
   const [fontsLoaded] = useFonts({
-    Nunito_400Regular: require('../../assets/fonts/Nunito-400.ttf'),
-    Nunito_500Medium: require('../../assets/fonts/Nunito-500.ttf'),
-    Nunito_600SemiBold: require('../../assets/fonts/Nunito-600.ttf'),
-    Nunito_700Bold: require('../../assets/fonts/Nunito-700.ttf'),
-    Nunito_800ExtraBold: require('../../assets/fonts/Nunito-800.ttf'),
+    'SFProDisplay-Regular': require('../../assets/fonts/SFProDisplay-Regular.otf'),
+    'SFProDisplay-Medium': require('../../assets/fonts/SFProDisplay-Medium.otf'),
+    'SFProDisplay-Bold': require('../../assets/fonts/SFProDisplay-Bold.otf'),
     // Preload the Ionicons glyph font so every icon paints on the first frame.
     ...Ionicons.font,
   });

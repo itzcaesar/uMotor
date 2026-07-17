@@ -46,12 +46,14 @@ export default function Profile() {
 
       {/* Identity card */}
       <Pressable style={styles.idCard} onLongPress={() => router.push('/demo-controls')} delayLongPress={600}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.username} numberOfLines={1}>{d?.user?.name ?? '…'}</Text>
+        <View style={styles.idCopy}>
+          <Text style={styles.username} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.82}>
+            {d?.user?.name ?? '…'}
+          </Text>
           <Text style={styles.phone}>{d?.user?.phone ?? ''}</Text>
         </View>
         <View style={[styles.idIllus, { pointerEvents: 'none' }]}>
-          <Illustration name="profile" height={92} />
+          <Illustration name="profile" height={84} />
         </View>
         <View style={styles.idStrip} />
       </Pressable>
@@ -119,9 +121,10 @@ const styles = StyleSheet.create({
   header: { fontSize: 22, fontWeight: '800', color: umotor.heroDark },
 
   idCard: { backgroundColor: '#d0e4ff', borderRadius: 18, padding: 18, paddingBottom: 26, flexDirection: 'row', overflow: 'hidden', minHeight: 110 },
-  username: { fontSize: 26, fontWeight: '800', color: umotor.heroDark },
+  idCopy: { flex: 1, minWidth: 0, paddingRight: 106, zIndex: 1 },
+  username: { fontSize: 22, lineHeight: 26, fontWeight: '800', color: umotor.heroDark },
   phone: { fontSize: 13, color: 'rgba(28,78,147,0.55)', marginTop: 4 },
-  idIllus: { position: 'absolute', right: 12, top: 8 },
+  idIllus: { position: 'absolute', right: 8, top: 10 },
   idStrip: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 14, backgroundColor: umotor.heroDark },
 
   sectionTitle: { fontSize: 18, fontWeight: '800', color: umotor.heroDark },
